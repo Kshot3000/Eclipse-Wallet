@@ -261,7 +261,7 @@
       x: fromLeft ? -60 : W + 60,
       y: rand(-30, H * 0.32),
       vx: ux * speed, vy: uy * speed, ux, uy,
-      size: rand(4, 7),
+      size: rand(9, 15),
     });
   }
 
@@ -279,21 +279,28 @@
     }
   }
 
-  // The Cardano token mark: a disc with the 1+6 dot logo.
-  function drawAdaCoin(x, y, r) {
-    ctx.fillStyle = rgba(BLUE, 0.95);
-    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = rgba([150, 185, 255], 0.85);
-    ctx.lineWidth = Math.max(1, r * 0.12);
-    ctx.stroke();
-    ctx.fillStyle = rgba([220, 232, 255], 0.96);
-    const dr = r * 0.56, dotr = Math.max(0.7, r * 0.17);
-    ctx.beginPath(); ctx.arc(x, y, dotr, 0, Math.PI * 2); ctx.fill(); // center
-    for (let i = 0; i < 6; i++) {
-      const a = -Math.PI / 2 + i * Math.PI / 3;
-      ctx.beginPath();
-      ctx.arc(x + Math.cos(a) * dr, y + Math.sin(a) * dr, dotr, 0, Math.PI * 2);
-      ctx.fill();
+  // The real Cardano mark: a #0133ae coin with 30 white dots in 5 hex rings
+  // (measured from the official token). Rings: { r: radius/coinR, s: dotR/coinR,
+  // off: base angle, degrees from 12 o'clock clockwise }.
+  const ADA_BLUE = [1, 51, 174];
+  const ADA_DOTS = [
+    { r: 0.22, s: 0.092, off: 30 },
+    { r: 0.365, s: 0.054, off: 0 },
+    { r: 0.46, s: 0.054, off: 30 },
+    { r: 0.60, s: 0.034, off: 0 },
+    { r: 0.70, s: 0.033, off: 30 },
+  ];
+  function drawAdaCoin(x, y, R) {
+    ctx.fillStyle = rgba(ADA_BLUE, 1);
+    ctx.beginPath(); ctx.arc(x, y, R, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.98)';
+    for (const d of ADA_DOTS) {
+      for (let k = 0; k < 6; k++) {
+        const a = (d.off + k * 60) * Math.PI / 180;
+        const dx = x + Math.sin(a) * d.r * R;
+        const dy = y - Math.cos(a) * d.r * R;
+        ctx.beginPath(); ctx.arc(dx, dy, d.s * R, 0, Math.PI * 2); ctx.fill();
+      }
     }
   }
 
@@ -312,7 +319,7 @@
       ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(m.x, m.y); ctx.stroke();
       ctx.save();
       ctx.shadowColor = rgba([150, 185, 255], 0.9);
-      ctx.shadowBlur = m.size * 2;
+      ctx.shadowBlur = Math.min(m.size * 1.6, 26);
       drawAdaCoin(m.x, m.y, m.size);
       ctx.restore();
     }
