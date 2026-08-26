@@ -189,6 +189,9 @@ section { padding: 64px 0; }
 }
 .chain-card li::before { content: "✓"; color: var(--c); font-weight: 700; flex: 0 0 auto; }
 .chain-card .nets { margin-top: 16px; font-size: 12px; color: var(--faint); }
+.chain-card .chain-links { margin-top: 14px; display: flex; flex-wrap: wrap; gap: 6px 14px; padding-top: 12px; border-top: 1px solid var(--border-soft); }
+.chain-card .chain-links a { font-size: 12px; font-weight: 650; color: var(--muted); text-decoration: none; }
+.chain-card .chain-links a:hover { color: var(--c); text-decoration: underline; }
 .chain-card.blue { --c: var(--blue); }
 .chain-card.black { --c: #c9d4ea; }
 .chain-card.orange { --c: var(--orange); }

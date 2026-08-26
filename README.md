@@ -157,6 +157,16 @@ Eclipse is free, open source and ad-free. If it earns a place in your toolbar, a
 
 Creator: **[@kshot9000 on X](https://x.com/kshot9000)** · [github.com/Kshot3000](https://github.com/Kshot3000) — verify addresses on X before sending anything of value.
 
+## References
+
+Official sources this project follows (also listed on the [developer docs](https://kshot3000.github.io/Eclipse-Wallet/docs.html#references)):
+
+- **Cardano** — [cardano.org](https://cardano.org) · [docs.cardano.org](https://docs.cardano.org) · [github.com/input-output-hk](https://github.com/input-output-hk)
+- **Midnight** — [midnight.network](https://midnight.network) · [NIGHT token](https://midnight.network/night) · [github.com/midnightntwrk](https://github.com/midnightntwrk)
+- **Bitcoin** — [bitcoin.org](https://bitcoin.org) · [developer guide](https://bitcoin.org/en/developer-guide) · [github.com/bitcoin/bitcoin](https://github.com/bitcoin/bitcoin)
+
+Implemented standards: RFC 8032 (Ed25519), BIP 340 (Schnorr), BIP 143 (sighash), BIP 84 (derivation), BIP 173/350 (bech32/bech32m), BIP 39, SLIP-0010, RFC 8949 (CBOR), BLAKE2b — each verified in `tests/` against official vectors.
+
 ## Notes
 
 - This is a personal/open-source wallet implementation. The crypto layers are checked against official specification vectors in `tests/`, but you should still review the code (especially `extension/lib/` and `extension/popup/`) before trusting it with significant funds.

@@ -69,6 +69,7 @@
         <a href="#build">Build from source</a>
         <a href="#contributing">Contributing</a>
         <a href="#support">Support</a>
+        <a href="#references">References &amp; sources</a>
       </aside>
 
       <!-- ========================== CONTENT ========================== -->
@@ -323,6 +324,37 @@ node tests/smoke_extension.mjs <span class="cm"># 63 offline integration checks<
             <a class="btn primary" href="/#donate">Donation addresses →</a>
             <a class="btn" href="https://x.com/kshot9000" target="_blank" rel="noopener">𝕏 · @kshot9000</a>
             <a class="btn" href="https://github.com/Kshot3000/eclipse-wallet" target="_blank" rel="noopener">GitHub</a>
+          </div>
+        </section>
+
+        <section id="references" class="doc-sec reveal">
+          <h2>References &amp; official sources</h2>
+          <p>Eclipse is built to the official specifications of three chains, and this site's claims are grounded in the official sources below — not in third-party summaries. When in doubt, the spec wins:</p>
+          <div class="bp-grid">
+            <div class="bp"><span class="bk">🔷</span><div><h3><a href="https://cardano.org" target="_blank" rel="noopener">cardano.org</a></h3><p>Home of the protocol: Ouroboros proof-of-stake, peer-reviewed by design, currently in the Conway era. <a href="https://docs.cardano.org" target="_blank" rel="noopener">docs.cardano.org</a> hosts the developer documentation.</p></div></div>
+            <div class="bp"><span class="bk">🏛️</span><div><h3><a href="https://github.com/input-output-hk" target="_blank" rel="noopener">input-output-hk</a></h3><p>IOG — the engineering org behind Cardano: Lace (wallet), cardano-playground, cardano-haskell-packages and the Ouroboros consensus research.</p></div></div>
+            <div class="bp"><span class="bk">⬛</span><div><h3><a href="https://midnight.network" target="_blank" rel="noopener">midnight.network</a></h3><p>Fourth-generation chain with programmable privacy: unshielded <b>NIGHT</b> as the native token and <b>DUST</b> as the fee resource. <a href="https://midnight.network/night" target="_blank" rel="noopener">/night</a> covers the NIGHT token.</p></div></div>
+            <div class="bp"><span class="bk">🧩</span><div><h3><a href="https://github.com/midnightntwrk" target="_blank" rel="noopener">midnightntwrk</a></h3><p>The Midnight open-source org: midnight-ledger, midnight-js, the MIP process and the dApp connector API Eclipse follows for NIGHT.</p></div></div>
+            <div class="bp"><span class="bk">🟠</span><div><h3><a href="https://bitcoin.org" target="_blank" rel="noopener">bitcoin.org</a></h3><p>Open-source P2P money. The <a href="https://bitcoin.org/en/developer-guide" target="_blank" rel="noopener">developer guide</a> is the canonical primer for addresses, UTXOs and fees.</p></div></div>
+            <div class="bp"><span class="bk">⚡</span><div><h3><a href="https://github.com/bitcoin/bitcoin" target="_blank" rel="noopener">bitcoin/bitcoin</a></h3><p>Bitcoin Core — the reference implementation. Eclipse's P2WPKH addresses and BIP143-signed transactions are verified against its format, not a copy of it.</p></div></div>
+          </div>
+          <h3>Specs Eclipse implements</h3>
+          <div class="tablewrap">
+          <table class="dtable">
+            <tr><th>Standard</th><th>What it defines</th><th>Where Eclipse uses it</th></tr>
+            <tr><td><code>RFC 8032</code></td><td>Ed25519 signatures</td><td>Cardano message signing</td></tr>
+            <tr><td><code>BIP 340</code></td><td>Schnorr signatures over secp256k1</td><td>Midnight (NIGHT) message signing</td></tr>
+            <tr><td><code>BIP 143</code></td><td>SegWit transaction sighash</td><td>Bitcoin transaction signing</td></tr>
+            <tr><td><code>BIP 84</code></td><td>Purpose 84′ derivation (native SegWit)</td><td>Bitcoin key derivation</td></tr>
+            <tr><td><code>BIP 173 / BIP 350</code></td><td>bech32 / bech32m encodings</td><td><code>bc1…</code> and Midnight unshielded (bech32m) addresses</td></tr>
+            <tr><td><code>BIP 39</code></td><td>Mnemonic recovery phrases</td><td>24-word backup (English wordlist)</td></tr>
+            <tr><td><code>SLIP-0010</code></td><td>HD key derivation</td><td>ed25519 (Cardano) + secp256k1 (Bitcoin/Midnight) chains</td></tr>
+            <tr><td><code>RFC 8949</code></td><td>CBOR serialization</td><td>Cardano wire format &amp; address metadata</td></tr>
+            <tr><td><code>BLAKE2b</code></td><td>Hash family</td><td>Cardano hashing (address, txid, witnesses)</td></tr>
+          </table>
+          </div>
+          <div class="callout">
+            <b>Every one of these is tested.</b> The offline test suites verify Eclipse's outputs against the official test vectors for each standard (RFC 8032, BIP 340's 27 vectors, BIP 143 byte-exact transactions, RFC 8949 Appendix A, BLAKE2b KATs) — see <span class="mono">tests/</span> in the repository.
           </div>
         </section>
 

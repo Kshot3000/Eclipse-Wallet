@@ -130,34 +130,49 @@
         <div class="chains">
           <article class="chain-card blue">
             <div class="top"><span class="sym">₳</span><h3>Cardano</h3></div>
-            <div class="role">ADA · proof of stake</div>
+            <div class="role">ADA · Ouroboros proof-of-stake</div>
             <ul>
               <li>Base, stake &amp; enterprise addresses</li>
               <li>Live balances from on-chain UTXOs</li>
               <li>Send ADA with automatic fees</li>
-              <li>Ed25519 message signing</li>
+              <li>Ed25519 message signing (RFC 8032)</li>
             </ul>
+            <div class="chain-links">
+              <a href="https://cardano.org" target="_blank" rel="noopener">cardano.org</a>
+              <a href="https://docs.cardano.org" target="_blank" rel="noopener">docs</a>
+              <a href="https://github.com/input-output-hk" target="_blank" rel="noopener">IOG ↗</a>
+            </div>
             <div class="nets">Mainnet · Preview · Preprod</div>
           </article>
           <article class="chain-card black">
             <div class="top"><span class="sym" style="display:inline-flex;align-items:center;justify-content:center"><svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2.8"/><rect x="10.65" y="6.65" width="2.7" height="2.7" fill="currentColor"/><rect x="10.65" y="10.65" width="2.7" height="2.7" fill="currentColor"/><rect x="10.65" y="14.65" width="2.7" height="2.7" fill="currentColor"/></svg></span><h3>Midnight</h3></div>
-            <div class="role">NIGHT · Cardano's privacy chain</div>
+            <div class="role">NIGHT · programmable privacy (ZK)</div>
             <ul>
-              <li>Unshielded (bech32m) addresses</li>
+              <li>Unshielded NIGHT — bech32m addresses</li>
+              <li>NIGHT → DUST fee-resource model</li>
               <li>BIP340 Schnorr message signing</li>
-              <li>Mainnet · Testnet · Devnet</li>
             </ul>
-            <div class="nets">v1: address + signing — transactions next</div>
+            <div class="chain-links">
+              <a href="https://midnight.network" target="_blank" rel="noopener">midnight.network</a>
+              <a href="https://midnight.network/night" target="_blank" rel="noopener">NIGHT token</a>
+              <a href="https://github.com/midnightntwrk" target="_blank" rel="noopener">midnightntwrk ↗</a>
+            </div>
+            <div class="nets">Mainnet · Testnet · Devnet — v1: address + signing</div>
           </article>
           <article class="chain-card orange">
             <div class="top"><span class="sym">₿</span><h3>Bitcoin</h3></div>
-            <div class="role">BTC · the original money</div>
+            <div class="role">BTC · open-source P2P money</div>
             <ul>
-              <li>Native segwit (bc1) addresses</li>
-              <li>Live balances: funded − spent</li>
+              <li>Native segwit P2WPKH (bc1, BIP173)</li>
+              <li>UTXO balances: funded − spent</li>
               <li>Fee tiers: fastest / half-hour / economy</li>
-              <li>ECDSA-over-SHA-256 message signing</li>
+              <li>ECDSA-over-SHA-256 signing (low-S)</li>
             </ul>
+            <div class="chain-links">
+              <a href="https://bitcoin.org" target="_blank" rel="noopener">bitcoin.org</a>
+              <a href="https://bitcoin.org/en/developer-guide" target="_blank" rel="noopener">developer guide</a>
+              <a href="https://github.com/bitcoin/bitcoin" target="_blank" rel="noopener">bitcoin/bitcoin ↗</a>
+            </div>
             <div class="nets">Mainnet · Testnet</div>
           </article>
         </div>
