@@ -34,7 +34,7 @@ const CHAIN = { cardano: CARDANO, bitcoin: BITCOIN, midnight: MIDNIGHT };
 const CHAIN_META = {
   cardano: { symbol: 'ADA', color: 'var(--ada)', icon: '◈' },
   bitcoin: { symbol: 'BTC', color: 'var(--btc)', icon: '₿' },
-  midnight: { symbol: 'XNO', color: 'var(--xno)', icon: '☾' },
+  midnight: { symbol: 'NIGHT', color: 'var(--xno)', icon: '☾' },
 };
 
 /* ------------------------------ storage ------------------------------ */
@@ -644,7 +644,7 @@ function viewOnboarding() {
          Your keys are generated and used on this device only.</p>
       <div class="chips">
         <span class="chip" style="--c:${CHAIN_META.cardano.color}">ADA</span>
-        <span class="chip" style="--c:${CHAIN_META.midnight.color}">XNO</span>
+        <span class="chip" style="--c:${CHAIN_META.midnight.color}">NIGHT</span>
         <span class="chip" style="--c:${CHAIN_META.bitcoin.color}">BTC</span>
       </div>
     </div>

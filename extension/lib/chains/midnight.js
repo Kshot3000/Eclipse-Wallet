@@ -57,7 +57,7 @@ function taggedHash(tag, ...msgs) {
 export const MIDNIGHT = {
   id: 'midnight',
   name: 'Midnight',
-  symbol: 'XNO',
+  symbol: 'NIGHT',
   decimals: 6,
   color: '#0A0A0F',
   networks: {
@@ -159,5 +159,5 @@ export function formatXno(microXno) {
   const abs = neg ? -units : units;
   const whole = abs / 1000000n;
   const frac = (abs % 1000000n).toString().padStart(6, '0').replace(/0+$/, '');
-  return (neg ? '-' : '') + whole.toString() + (frac ? '.' + frac : '') + ' XNO';
+  return (neg ? '-' : '') + whole.toString() + (frac ? '.' + frac : '') + ' NIGHT';
 }

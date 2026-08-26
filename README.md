@@ -1,6 +1,6 @@
 # Eclipse Wallet
 
-**All-in-one, self-custody browser-extension wallet for [Cardano](https://cardano.org) (ADA), [Midnight](https://midnight.network/night) (XNO) and [Bitcoin](https://bitcoin.org) (BTC).** One Manifest-V3 codebase that runs on **Chrome** and **Brave**.
+**All-in-one, self-custody browser-extension wallet for [Cardano](https://cardano.org) (ADA), [Midnight](https://midnight.network/night) (NIGHT) and [Bitcoin](https://bitcoin.org) (BTC).** One Manifest-V3 codebase that runs on **Chrome** and **Brave**.
 
 > **Website:** <https://kshot3000.github.io/eclipse-wallet/> — source in [`website/`](website/), deployed to GitHub Pages via [`.github/workflows/pages.yml`](.github/workflows/pages.yml).
 >
@@ -14,7 +14,7 @@
 
 ## Features
 
-| | Cardano (ADA) | Midnight (XNO) | Bitcoin (BTC) |
+| | Cardano (ADA) | Midnight (NIGHT) | Bitcoin (BTC) |
 |---|---|---|---|
 | Addresses | base (`addr1…`), stake (`stake1…`), enterprise (`addr1v…`) | unshielded (`mn_addr…`, bech32m) | native segwit P2WPKH (`bc1…`) |
 | Balance | live, from on-chain UTXOs (Koios) | *v1: not available* | live (Blockstream, funded − spent) |
