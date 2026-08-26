@@ -2,7 +2,7 @@
 
 **All-in-one, self-custody browser-extension wallet for [Cardano](https://cardano.org) (ADA), [Midnight](https://midnight.network/night) (NIGHT) and [Bitcoin](https://bitcoin.org) (BTC).** One Manifest-V3 codebase that runs on **Chrome** and **Brave**.
 
-> **Website:** <https://kshot3000.github.io/eclipse-wallet/> · **Developer docs:** <https://kshot3000.github.io/eclipse-wallet/docs.html> — source in [`website/`](website/), deployed to GitHub Pages via [`.github/workflows/pages.yml`](.github/workflows/pages.yml).
+> **Website:** <https://kshot3000.github.io/Eclipse-Wallet/> · **Developer docs:** <https://kshot3000.github.io/Eclipse-Wallet/docs.html> — source in [`website/`](website/), deployed to GitHub Pages via [`.github/workflows/pages.yml`](.github/workflows/pages.yml).
 >
 > **Built by** [@kshot9000](https://x.com/kshot9000) · [github.com/Kshot3000](https://github.com/Kshot3000) — creator of NightDream.io, EUTXO.DEX, Cardano SPO Tracker, Nocturne Messenger and The Cold Front.
 
@@ -57,7 +57,7 @@ First run walks you through **Create a wallet** (or import an existing BIP39 rec
 
 ## dApp integration
 
-> **Building a dApp?** Start with the full developer reference: <https://kshot3000.github.io/eclipse-wallet/docs.html> — detection, `getAddress`, `signMessage`, `request`, every error string, the approval lifecycle, and best practices.
+> **Building a dApp?** Start with the full developer reference: <https://kshot3000.github.io/Eclipse-Wallet/docs.html> — detection, `getAddress`, `signMessage`, `request`, every error string, the approval lifecycle, and best practices.
 
 On `http:`/`https:` pages Eclipse injects `window.eclipse` (alias `window.EclipseWallet`):
 
