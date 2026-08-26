@@ -266,6 +266,14 @@ section { padding: 64px 0; }
 .note p { font-size: 13px; color: var(--muted); }
 .note .mono { font-family: var(--mono); font-size: 12px; color: var(--blue-2); }
 
+/* Nocturne (private messenger) — Midnight-silver identity */
+#nocturne .sec-head .kicker {
+  background: linear-gradient(90deg, #8ea2c9 0%, #c9d4ea 100%);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; color: #c9d4ea;
+}
+#nocturne .note { margin-top: 14px; }
+
 /* ------------------------------ creator ---------------------------- */
 .creator-card {
   max-width: 720px; margin: 0 auto;

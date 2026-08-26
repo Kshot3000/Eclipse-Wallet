@@ -4,18 +4,18 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Eclipse Wallet — All-in-one Cardano · Midnight · Bitcoin wallet for Chrome &amp; Brave</title>
-  <meta name="description" content="Eclipse is an all-in-one, self-custody browser wallet for Cardano (ADA), Midnight (NIGHT) and Bitcoin (BTC) on Chrome and Brave. Encrypted keys, live balances, sends, message signing and a minimal dApp API.">
+  <meta name="description" content="Eclipse is an all-in-one, self-custody browser wallet for Cardano (ADA), Midnight (NIGHT) and Bitcoin (BTC) on Chrome and Brave. Encrypted keys, live balances, sends, message signing, a minimal dApp API — and Nocturne: sealed private messaging with signed NIGHT transfers.">
   <meta name="theme-color" content="#05060a">
 
   <!-- Open Graph / Twitter -->
   <meta property="og:type" content="website">
   <meta property="og:title" content="Eclipse Wallet — Cardano · Midnight · Bitcoin in one">
-  <meta property="og:description" content="One smooth, encrypted browser wallet for three chains: send, receive, sign and explore ADA, NIGHT and BTC on Chrome and Brave.">
+  <meta property="og:description" content="One smooth, encrypted browser wallet for three chains — with Nocturne sealed private messaging and signed NIGHT transfers built in. ADA, NIGHT and BTC on Chrome and Brave.">
   <meta property="og:url" content="https://kshot3000.github.io/Eclipse-Wallet/">
   <meta property="og:image" content="https://kshot3000.github.io/Eclipse-Wallet/assets/logo.png">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="Eclipse Wallet — Cardano · Midnight · Bitcoin in one">
-  <meta name="twitter:description" content="One smooth, encrypted browser wallet for three chains — on Chrome and Brave.">
+  <meta name="twitter:description" content="One encrypted browser wallet for three chains, with Nocturne private messaging and signed NIGHT transfers — on Chrome and Brave.">
   <meta name="twitter:creator" content="@kshot9000">
 
   <link rel="icon" type="image/png" href="assets/favicon.png">
@@ -40,6 +40,7 @@
         <a href="#why">Why</a>
         <a href="#chains">Chains</a>
         <a href="#security">Security</a>
+        <a href="#nocturne">Nocturne</a>
         <a href="#dapps">dApps</a>
         <a href="docs.html">Docs</a>
         <a href="#roadmap">Roadmap</a>
@@ -55,7 +56,7 @@
     <section class="hero">
       <div class="badge"><span class="dot"></span>v0.1 · Chrome &amp; Brave · self-custody</div>
       <h1>Three chains.<br>One wallet.</h1>
-      <p class="tag"><b class="c-cardano">Cardano.</b> <b class="c-mid">Midnight.</b> <b class="c-btc">Bitcoin.</b> — send, receive, sign and explore from one smooth, encrypted browser wallet that feels as effortless as Phantom.</p>
+      <p class="tag"><b class="c-cardano">Cardano.</b> <b class="c-mid">Midnight.</b> <b class="c-btc">Bitcoin.</b> — send, receive, sign and explore from one smooth, encrypted browser wallet that feels as effortless as Phantom, plus <b class="c-mid">Nocturne</b> — the sealed private messenger that lives inside your vault.</p>
       <div class="cta">
         <a class="btn primary" href="https://github.com/Kshot3000/eclipse-wallet" target="_blank" rel="noopener">Get Eclipse on GitHub</a>
         <a class="btn" href="#install">Install in 3 steps</a>
@@ -64,6 +65,7 @@
         <span class="chip" style="--c:#3d6fe0">ADA · Cardano</span>
         <span class="chip" style="--c:#c9d4ea">NIGHT · Midnight</span>
         <span class="chip" style="--c:#f7931a">BTC · Bitcoin</span>
+        <span class="chip" style="--c:#9fb4d8">☾ Nocturne · private, in the wallet</span>
       </div>
     </section>
 
@@ -115,6 +117,7 @@
             <div class="bullet"><span class="bk">☰</span><div><h3>Three chains, zero context-switching</h3><p>ADA, NIGHT and BTC balances, sends and signatures from one toolbar icon — with per-chain network selection.</p></div></div>
             <div class="bullet"><span class="bk">🛡️</span><div><h3>Approval-first dApps</h3><p>Every dApp request is explicit. Approve, reject, or remember an origin — nothing runs silently, ever.</p></div></div>
             <div class="bullet"><span class="bk">🔑</span><div><h3>Self-custody, zero accounts</h3><p>No email, no phone number, no sync. Your seed is encrypted on this device and shown exactly once.</p></div></div>
+            <div class="bullet"><span class="bk">🌙</span><div><h3>Private by default</h3><p>Nocturne keeps your DMs sealed on this device — AES-256-GCM keyed from your wallet seed, with quiet rails for NIGHT, ADA and BTC. No servers.</p></div></div>
           </div>
         </div>
       </div>
@@ -227,6 +230,38 @@
       </div>
     </section>
 
+    <!-- ============================= NOCTURNE =========================== -->
+    <section id="nocturne" class="reveal">
+      <div class="wrap">
+        <div class="sec-head">
+          <div class="kicker">Nocturne · private</div>
+          <h2>Your wallet, after dark</h2>
+          <p>Nocturne — the Eclipse edition of the creator's Nocturne Messenger — lives inside the wallet as its own tab: sealed on this device, keyed from your seed, honest about every byte it claims.</p>
+        </div>
+        <div class="sec-grid">
+          <div class="sec-item">
+            <div class="ico">🌙</div>
+            <h3>Sealed DMs + mailbox</h3>
+            <p>Private chats and a personal mailbox at <span class="mono">you@nocturne.night</span>. Every message is sealed with AES-256-GCM before it touches browser storage — no server, no plaintext at rest.</p>
+          </div>
+          <div class="sec-item">
+            <div class="ico">🗝️</div>
+            <h3>Keyed from your wallet</h3>
+            <p>The sealing key is derived from your wallet seed (<span class="mono">SHA-256(seed || "nocturne/v1")</span>). Same vault, same keys — no second login, nothing to phish, nothing to sync.</p>
+          </div>
+          <div class="sec-item">
+            <div class="ico">🤫</div>
+            <h3>Quiet rails, three chains</h3>
+            <p>ADA and BTC sends settle through the wallet's real signing + broadcast pipelines; NIGHT sends become signed transfer records on Midnight. Demo residents are labelled as demo — the encryption is the real thing.</p>
+          </div>
+        </div>
+        <div class="note">
+          <h3>Signed NIGHT transfers — honest receipts</h3>
+          <p>A NIGHT send builds a canonical CBOR record (from, to, amount, memo, network, ts), signs it with your NightExternal key (BIP340 Schnorr) and submits it to the official Midnight RPC via <span class="mono">author_submitExtrinsic</span>. The receipt records what the node actually said — <span class="mono">broadcast</span> (accepted: txid + explorer) or <span class="mono">signed</span> (rejected or unreachable: the node's message, with your fully signed payload kept in the sealed store). Native Midnight-ledger (ZK-proof) transfers arrive with the SDK integration — no fake "confirmed", ever.</p>
+        </div>
+      </div>
+    </section>
+
     <!-- ============================== dAPPS ============================= -->
     <section id="dapps" class="reveal">
       <div class="wrap">
@@ -311,6 +346,8 @@
               <li><span class="rm-dot"></span>Message signing: Ed25519 · BIP340 · ECDSA</li>
               <li><span class="rm-dot"></span>window.eclipse dApp provider with approvals</li>
               <li><span class="rm-dot"></span>Encrypted local vault (scrypt + AES-256-GCM)</li>
+              <li><span class="rm-dot"></span>Nocturne: sealed private messaging + quiet rails (NIGHT · ADA · BTC)</li>
+              <li><span class="rm-dot"></span>Signed NIGHT transfer records → Midnight RPC</li>
             </ul>
           </div>
           <div class="rm-col next">
@@ -357,7 +394,7 @@
               <div class="p"><span class="ic">☾</span><span><b><a href="https://github.com/Kshot3000/nightdream.io" target="_blank" rel="noopener">NightDream.io</a></b> — Cardano by day, Midnight by night: live markets, a 554-token registry and a privacy-chain watchlist.</span></div>
               <div class="p"><span class="ic">⬡</span><span><b><a href="https://github.com/Kshot3000/eutxo-dex" target="_blank" rel="noopener">EUTXO.DEX</a></b> — a non-custodial DEX for Ergo: sigma-rust signing in WASM, real constant-product math.</span></div>
               <div class="p"><span class="ic">₳</span><span><b><a href="https://github.com/Kshot3000/Epoch-Tracker" target="_blank" rel="noopener">Cardano SPO Tracker</a></b> — staking dashboard with an on-device epoch clock, per-epoch ADA rewards, fully offline-capable.</span></div>
-              <div class="p"><span class="ic">✉</span><span><b><a href="https://github.com/Kshot3000/nocturne-messenger" target="_blank" rel="noopener">Nocturne Messenger</a></b> — private end-to-end messenger on Midnight: sealed mailboxes and quiet rails for NIGHT, ADA &amp; BTC. No servers.</span></div>
+              <div class="p"><span class="ic">✉</span><span><b><a href="https://github.com/Kshot3000/nocturne-messenger" target="_blank" rel="noopener">Nocturne Messenger</a></b> — the private messenger now built into Eclipse: sealed mailboxes and quiet rails for NIGHT, ADA &amp; BTC. No servers.</span></div>
               <div class="p"><span class="ic">❄</span><span><b><a href="https://github.com/Kshot3000/the-cold-front" target="_blank" rel="noopener">The Cold Front</a></b> — an independent Chicago Bears fan site for people who think football should be played in a blizzard.</span></div>
             </div>
           </div>
@@ -429,6 +466,14 @@
           <details>
             <summary>Which networks are supported?<span class="pm">+</span></summary>
             <div class="a">Cardano: Mainnet / Preview / Preprod · Bitcoin: Mainnet / Testnet · Midnight: Mainnet / Preprod / Preview. Switch per chain in Settings — the wallet validates that addresses match the selected network before letting you sign.</div>
+          </details>
+          <details>
+            <summary>Does Eclipse have private messaging?<span class="pm">+</span></summary>
+            <div class="a">Yes — <b>Nocturne</b> is built in as its own tab: sealed DMs and a personal mailbox (<span class="mono">you@nocturne.night</span>), plus quiet rails for NIGHT, ADA and BTC. Messages are sealed with AES-256-GCM using a key derived from your wallet seed, and everything stays on this device — no server, no analytics. Demo residents are labelled as demo; the encryption is the real thing.</div>
+          </details>
+          <details>
+            <summary>Is this the same as the Nocturne Messenger site?<span class="pm">+</span></summary>
+            <div class="a">Same idea, different home. Eclipse ships the <b>Eclipse edition</b> of <a href="https://kshot9000.github.io/nocturne/" target="_blank" rel="noopener">Nocturne</a> built in, keyed from your wallet seed. The standalone messenger site remains a separate project.</div>
           </details>
           <details>
             <summary>Does Eclipse collect my data?<span class="pm">+</span></summary>
