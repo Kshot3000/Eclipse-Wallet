@@ -1,0 +1,39 @@
+{
+  "manifest_version": 3,
+  "name": "Eclipse Wallet",
+  "short_name": "Eclipse",
+  "version": "0.1.0",
+  "description": "All-in-one self-custody wallet for Cardano (ADA), Midnight (XNO) and Bitcoin (BTC). Your keys, your coins — on Chrome and Brave.",
+  "minimum_chrome_version": "110",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_title": "Eclipse Wallet",
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "background": {
+    "service_worker": "background/service-worker.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["content/content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "permissions": ["storage", "notifications"],
+  "host_permissions": [
+    "https://api.koios.rest/*",
+    "https://blockstream.info/*",
+    "https://mempool.space/*"
+  ]
+}

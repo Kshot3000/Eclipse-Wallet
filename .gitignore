@@ -1,0 +1,9 @@
+# Dev scratch (local only)
+.tmp_debug/
+
+# Windows artifact from a stray redirect
+nul
+
+# OS junk
+.DS_Store
+Thumbs.db

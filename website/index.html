@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Eclipse Wallet — All-in-one Cardano · Midnight · Bitcoin wallet for Chrome &amp; Brave</title>
+  <meta name="description" content="Eclipse is an all-in-one, self-custody browser wallet for Cardano (ADA), Midnight (XNO) and Bitcoin (BTC) on Chrome and Brave. Encrypted keys, live balances, sends, message signing and a minimal dApp API.">
+  <meta name="theme-color" content="#05060a">
+
+  <!-- Open Graph / Twitter -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Eclipse Wallet — Cardano · Midnight · Bitcoin in one">
+  <meta property="og:description" content="One smooth, encrypted browser wallet for three chains: send, receive, sign and explore ADA, XNO and BTC on Chrome and Brave.">
+  <meta property="og:url" content="https://kshot3000.github.io/eclipse-wallet/">
+  <meta property="og:image" content="https://kshot3000.github.io/eclipse-wallet/assets/logo.png">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Eclipse Wallet — Cardano · Midnight · Bitcoin in one">
+  <meta name="twitter:description" content="One smooth, encrypted browser wallet for three chains — on Chrome and Brave.">
+  <meta name="twitter:creator" content="@kshot9000">
+
+  <link rel="icon" type="image/png" href="assets/favicon.png">
+  <link rel="apple-touch-icon" href="assets/favicon.png">
+  <link rel="stylesheet" href="css/site.css">
+  <noscript><style>.reveal{opacity:1;transform:none}</style></noscript>
+  <script src="js/vendor/qrcode.js"></script>
+  <script defer src="js/background.js"></script>
+  <script defer src="js/site.js"></script>
+</head>
+<body>
+
+  <!-- Living background: Midnight eclipse + Bitcoin chain + Cardano relay lattice -->
+  <canvas id="bg" aria-hidden="true"></canvas>
+  <div class="vignette" aria-hidden="true"></div>
+
+  <header class="nav">
+    <div class="inner">
+      <a class="brand" href="/"><img src="assets/logo.png" alt="Eclipse Wallet logo"><span>Eclipse Wallet</span></a>
+      <nav class="links" aria-label="Sections">
+        <a href="#chains">Chains</a>
+        <a href="#security">Security</a>
+        <a href="#dapps">dApps</a>
+        <a href="#creator">Creator</a>
+        <a href="#donate">Donate</a>
+        <a href="#install">Install</a>
+      </nav>
+      <a class="btn primary sm" href="https://github.com/Kshot3000/eclipse-wallet" target="_blank" rel="noopener">GitHub</a>
+    </div>
+  </header>
+
+  <main>
+    <!-- ============================== HERO ============================== -->
+    <section class="hero">
+      <div class="badge"><span class="dot"></span>v0.1 · Chrome &amp; Brave · self-custody</div>
+      <h1>Three chains.<br>One wallet.</h1>
+      <p class="tag"><b>Cardano.</b> <b>Midnight.</b> <b>Bitcoin.</b> — send, receive, sign and explore from one smooth, encrypted browser wallet that feels as effortless as Phantom.</p>
+      <div class="cta">
+        <a class="btn primary" href="https://github.com/Kshot3000/eclipse-wallet" target="_blank" rel="noopener">Get Eclipse on GitHub</a>
+        <a class="btn" href="#install">Install in 3 steps</a>
+      </div>
+      <div class="chips">
+        <span class="chip" style="--c:#3d6fe0">ADA · Cardano</span>
+        <span class="chip" style="--c:#c9d4ea">XNO · Midnight</span>
+        <span class="chip" style="--c:#f7931a">BTC · Bitcoin</span>
+      </div>
+    </section>
+
+    <!-- ============================== CHAINS ============================ -->
+    <section id="chains" class="reveal">
+      <div class="wrap">
+        <div class="sec-head">
+          <div class="kicker">Chains</div>
+          <h2>Three networks, one home</h2>
+          <p>Eclipse speaks the native language of each chain — real addresses, real signatures, real explorer links.</p>
+        </div>
+        <div class="chains">
+          <article class="chain-card blue">
+            <div class="top"><span class="sym">₳</span><h3>Cardano</h3></div>
+            <div class="role">ADA · proof of stake</div>
+            <ul>
+              <li>Base, stake &amp; enterprise addresses</li>
+              <li>Live balances from on-chain UTXOs</li>
+              <li>Send ADA with automatic fees</li>
+              <li>Ed25519 message signing</li>
+            </ul>
+            <div class="nets">Mainnet · Preview · Preprod</div>
+          </article>
+          <article class="chain-card black">
+            <div class="top"><span class="sym">☾</span><h3>Midnight</h3></div>
+            <div class="role">XNO · Cardano's privacy chain</div>
+            <ul>
+              <li>Unshielded (bech32m) addresses</li>
+              <li>BIP340 Schnorr message signing</li>
+              <li>Mainnet · Testnet · Devnet</li>
+            </ul>
+            <div class="nets">v1: address + signing — transactions next</div>
+          </article>
+          <article class="chain-card orange">
+            <div class="top"><span class="sym">₿</span><h3>Bitcoin</h3></div>
+            <div class="role">BTC · the original money</div>
+            <ul>
+              <li>Native segwit (bc1) addresses</li>
+              <li>Live balances: funded − spent</li>
+              <li>Fee tiers: fastest / half-hour / economy</li>
+              <li>ECDSA-over-SHA-256 message signing</li>
+            </ul>
+            <div class="nets">Mainnet · Testnet</div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================= SECURITY =========================== -->
+    <section id="security" class="reveal">
+      <div class="wrap">
+        <div class="sec-head">
+          <div class="kicker">Security</div>
+          <h2>Your keys, your coins</h2>
+          <p>Eclipse is self-custody by design. Nothing is phished to a server, and nothing is signed without you.</p>
+        </div>
+        <div class="sec-grid">
+          <div class="sec-item">
+            <div class="ico">🔒</div>
+            <h3>Encrypted vault</h3>
+            <p>Seed encrypted with AES-256-GCM, keyed from scrypt (N = 2¹⁴, r = 8, p = 1) over your password. Wrong password → no seed.</p>
+          </div>
+          <div class="sec-item">
+            <div class="ico">🧊</div>
+            <h3>Memory-only seed</h3>
+            <p>After unlock the seed lives only in the popup's page memory. Locking discards it; it is never written to disk again.</p>
+          </div>
+          <div class="sec-item">
+            <div class="ico">🛰️</div>
+            <h3>Keyless background</h3>
+            <p>The service worker only brokers dApp requests and notifications. It never sees your keys or touches a signature.</p>
+          </div>
+          <div class="sec-item">
+            <div class="ico">✅</div>
+            <h3>Per-request approval</h3>
+            <p>Every dApp request needs an explicit approve or reject — with a badge, a desktop notification, and optional origin memory.</p>
+          </div>
+          <div class="sec-item">
+            <div class="ico">🎯</div>
+            <h3>Minimal permissions</h3>
+            <p>Only storage + notifications, with network access restricted to the three public APIs the wallet actually uses.</p>
+          </div>
+          <div class="sec-item">
+            <div class="ico">🗝️</div>
+            <h3>Your recovery phrase</h3>
+            <p>A 24-word BIP39 phrase is your only backup. Shown once, never stored, and no one else can recover it for you.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================== dAPPS ============================= -->
+    <section id="dapps" class="reveal">
+      <div class="wrap">
+        <div class="sec-head">
+          <div class="kicker">dApps</div>
+          <h2>Built for the dApp economy</h2>
+          <p>A small, honest provider API — approve what you want, sign when you choose.</p>
+        </div>
+        <div class="dapp-grid">
+          <div class="codebox"><span class="cm">// Eclipse injects window.eclipse on every http(s) page</span>
+<span class="kw">const</span> addr = <span class="kw">await</span> window.eclipse.<span class="fn">getAddress</span>(<span class="str">'cardano'</span>);
+
+<span class="cm">// Or ask for a message signature (you approve first):</span>
+<span class="kw">const</span> sig = <span class="kw">await</span> window.eclipse.<span class="fn">signMessage</span>(
+  <span class="str">'bitcoin'</span>, <span class="str">'Hello from my dApp!'</span>
+);
+<span class="cm">// → { chain, scheme, signature, pubKey, address }</span></div>
+          <div class="dapp-notes">
+            <div class="note">
+              <h3>Nothing silent, ever</h3>
+              <p>Requests queue in the wallet with a badge and a desktop notification. Approve, reject, or remember a trusted origin.</p>
+            </div>
+            <div class="note">
+              <h3>Native signing per chain</h3>
+              <p><span class="mono">ed25519</span> on Cardano, <span class="mono">bip340-schnorr</span> on Midnight, <span class="mono">ecdsa-secp256k1-sha256</span> on Bitcoin — each checked against official spec vectors.</p>
+            </div>
+            <div class="note">
+              <h3>No key access in the broker</h3>
+              <p>Signing happens in the unlocked popup. The worker that relays dApp traffic cannot derive or sign anything.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================= CREATOR ============================ -->
+    <section id="creator" class="reveal">
+      <div class="wrap">
+        <div class="sec-head">
+          <div class="kicker">Creator</div>
+          <h2>Built by @kshot9000</h2>
+          <p>Eclipse comes from the same independent hands behind these open projects — many of them live on the chains it now serves.</p>
+        </div>
+        <div class="creator-card">
+          <div class="avatar"><img src="assets/logo.png" alt="Eclipse Wallet logo"></div>
+          <div>
+            <h3>@kshot9000</h3>
+            <p class="sub">Creator of Eclipse Wallet · independent developer across Cardano, Midnight, Bitcoin &amp; Ergo.</p>
+            <div class="socials">
+              <a class="btn" href="https://x.com/kshot9000" target="_blank" rel="noopener">𝕏 · @kshot9000</a>
+              <a class="btn" href="https://github.com/Kshot3000" target="_blank" rel="noopener">GitHub · Kshot3000</a>
+            </div>
+            <div class="projects">
+              <div class="p"><span class="ic">☾</span><span><b><a href="https://github.com/Kshot3000/nightdream.io" target="_blank" rel="noopener">NightDream.io</a></b> — Cardano by day, Midnight by night: live markets, a 554-token registry and a privacy-chain watchlist.</span></div>
+              <div class="p"><span class="ic">⬡</span><span><b><a href="https://github.com/Kshot3000/eutxo-dex" target="_blank" rel="noopener">EUTXO.DEX</a></b> — a non-custodial DEX for Ergo: sigma-rust signing in WASM, real constant-product math.</span></div>
+              <div class="p"><span class="ic">₳</span><span><b><a href="https://github.com/Kshot3000/Epoch-Tracker" target="_blank" rel="noopener">Cardano SPO Tracker</a></b> — staking dashboard with an on-device epoch clock, per-epoch ADA rewards, fully offline-capable.</span></div>
+              <div class="p"><span class="ic">✉</span><span><b><a href="https://github.com/Kshot3000/nocturne-messenger" target="_blank" rel="noopener">Nocturne Messenger</a></b> — private end-to-end messenger on Midnight: sealed mailboxes and quiet rails for NIGHT, ADA &amp; BTC. No servers.</span></div>
+              <div class="p"><span class="ic">❄</span><span><b><a href="https://github.com/Kshot3000/the-cold-front" target="_blank" rel="noopener">The Cold Front</a></b> — an independent Chicago Bears fan site for people who think football should be played in a blizzard.</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================= DONATE ============================= -->
+    <section id="donate" class="reveal">
+      <div class="wrap">
+        <div class="sec-head">
+          <div class="kicker">Support</div>
+          <h2>Keep Eclipse alive</h2>
+          <p>Eclipse is free, open source and ad-free. If it earns a place in your toolbar, a tip in any of these chains keeps the lights on.</p>
+        </div>
+        <div class="donate-grid">
+          <div class="donate-card" style="--c:#3d6fe0">
+            <div class="head"><span class="sym">₳</span><b>Cardano (ADA)</b></div>
+            <div class="addr">addr1q8hnl6vl5a6k3rw3n5g3jtte696zcl76kfatzv7gpswa9r0dj7fma6klq55y4ffm7tf0em09udnyhuk4ah92pl5x9jpqjae44v</div>
+            <div class="qr qr-box" data-addr="cardano:addr1q8hnl6vl5a6k3rw3n5g3jtte696zcl76kfatzv7gpswa9r0dj7fma6klq55y4ffm7tf0em09udnyhuk4ah92pl5x9jpqjae44v"></div>
+            <div class="row">
+              <button class="btn sm" type="button" data-copy="addr1q8hnl6vl5a6k3rw3n5g3jtte696zcl76kfatzv7gpswa9r0dj7fma6klq55y4ffm7tf0em09udnyhuk4ah92pl5x9jpqjae44v"><span class="copy-label">Copy address</span></button>
+              <a class="btn sm" href="https://cardanoscan.io/addresses/addr1q8hnl6vl5a6k3rw3n5g3jtte696zcl76kfatzv7gpswa9r0dj7fma6klq55y4ffm7tf0em09udnyhuk4ah92pl5x9jpqjae44v" target="_blank" rel="noopener">Explorer ↗</a>
+            </div>
+          </div>
+          <div class="donate-card" style="--c:#f7931a">
+            <div class="head"><span class="sym">₿</span><b>Bitcoin (BTC)</b></div>
+            <div class="addr">3GnR7TWBXAB3pPztBWpNF4LMNEX5yX8vZK</div>
+            <div class="qr qr-box" data-addr="bitcoin:3GnR7TWBXAB3pPztBWpNF4LMNEX5yX8vZK"></div>
+            <div class="row">
+              <button class="btn sm" type="button" data-copy="3GnR7TWBXAB3pPztBWpNF4LMNEX5yX8vZK"><span class="copy-label">Copy address</span></button>
+              <a class="btn sm" href="https://mempool.space/address/3GnR7TWBXAB3pPztBWpNF4LMNEX5yX8vZK" target="_blank" rel="noopener">Explorer ↗</a>
+            </div>
+          </div>
+          <div class="donate-card" style="--c:#c9d4ea">
+            <div class="head"><span class="sym">⬡</span><b>Ergo (ERG)</b></div>
+            <div class="addr">9fcM5RWnAjmP4vx5bnW6yohB6H9bLq8sJbaPLHtwZLtQPB32Pvy</div>
+            <div class="qr qr-box" data-addr="ergo:9fcM5RWnAjmP4vx5bnW6yohB6H9bLq8sJbaPLHtwZLtQPB32Pvy"></div>
+            <div class="row">
+              <button class="btn sm" type="button" data-copy="9fcM5RWnAjmP4vx5bnW6yohB6H9bLq8sJbaPLHtwZLtQPB32Pvy"><span class="copy-label">Copy address</span></button>
+              <a class="btn sm" href="https://explorer.ergoplatform.com/addresses/9fcM5RWnAjmP4vx5bnW6yohB6H9bLq8sJbaPLHtwZLtQPB32Pvy" target="_blank" rel="noopener">Explorer ↗</a>
+            </div>
+          </div>
+        </div>
+        <p class="donate-note">These are the same addresses across all of <a href="https://x.com/kshot9000" target="_blank" rel="noopener">@kshot9000</a>'s projects. Verify them on X before sending anything of value.</p>
+      </div>
+    </section>
+
+    <!-- ============================= INSTALL ============================ -->
+    <section id="install" class="reveal">
+      <div class="wrap">
+        <div class="sec-head">
+          <div class="kicker">Install</div>
+          <h2>Live in under a minute</h2>
+          <p>No store, no install size — Eclipse is an unpacked extension that loads in three clicks on Chrome or Brave.</p>
+        </div>
+        <div class="steps">
+          <div class="step">
+            <div class="n">1</div>
+            <h3>Open the extensions page</h3>
+            <p><code>chrome://extensions</code> in Chrome, or <code>brave://extensions</code> in Brave.</p>
+          </div>
+          <div class="step">
+            <div class="n">2</div>
+            <h3>Load the extension</h3>
+            <p>Flip on <b>Developer mode</b>, click <b>Load unpacked</b> and pick the <code>extension/</code> folder from the repository.</p>
+          </div>
+          <div class="step">
+            <div class="n">3</div>
+            <h3>Create your wallet</h3>
+            <p>Pin Eclipse, create (or import) a wallet, write down your 24 words — then start sending across three chains.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="inner">
+      <div class="credit">Eclipse Wallet — built by <a href="https://x.com/kshot9000" target="_blank" rel="noopener">@kshot9000</a> for the Cardano, Midnight &amp; Bitcoin communities.</div>
+      <div class="flinks">
+        <a href="https://github.com/Kshot3000/eclipse-wallet" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://x.com/kshot9000" target="_blank" rel="noopener">X</a>
+        <a href="https://cardano.org" target="_blank" rel="noopener">Cardano</a>
+        <a href="https://midnight.network" target="_blank" rel="noopener">Midnight</a>
+        <a href="https://bitcoin.org" target="_blank" rel="noopener">Bitcoin</a>
+      </div>
+      <div class="fine">© <span data-year>2026</span> kshot9000 · Eclipse is a self-custody wallet: your keys, your coins, your responsibility. Not financial advice.</div>
+    </div>
+  </footer>
+
+</body>
+</html>
