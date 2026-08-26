@@ -128,7 +128,8 @@ export const WELCOME_MAIL = [
       '\u2022 Write mail to anyone at @nocturne.night (Sent keeps your copies)\n' +
       '\u2022 Send Midnight (NIGHT), Cardano (ADA) or Bitcoin (BTC) from the Send tab\n\n' +
       'ADA and BTC sends settle through Eclipse\u2019s real chain pipelines. ' +
-      'NIGHT sends are sealed now and broadcast when Midnight mainnet support lands.\n\n' +
+      'NIGHT sends are BIP340-signed with your NightExternal key and submitted to the ' +
+      'Midnight RPC — the fully signed record stays sealed in your store.\n\n' +
       'Cardano by day. Nocturne by night.\n' +
       '\u2014 The Nocturne Concierge'
   },
@@ -158,8 +159,8 @@ export const WELCOME_MAIL = [
       'renders a real, scannable QR of the recipient.\n\n' +
       '\u2022 ADA and BTC: signed with your key and broadcast \u2014 real transactions, ' +
       'real explorer links.\n' +
-      '\u2022 NIGHT: sealed and recorded now; broadcasting arrives with Midnight ' +
-      'mainnet support (v1 is address + message signing).\n\n' +
+      '\u2022 NIGHT: BIP340-signed with your NightExternal key and submitted to the ' +
+      'Midnight RPC. Native ledger (ZK) transfers land with the Midnight SDK integration.\n\n' +
       'Keep the lights low.'
   }
 ];

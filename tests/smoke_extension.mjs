@@ -99,6 +99,7 @@ const OUR_KEYHASH = 'aa'.repeat(20);
 const net = {
   submittxBody: null,
   broadcastHex: null,
+  midnight: { accepts: true, calls: [] },
 };
 
 function jsonOk(data) {
@@ -156,6 +157,19 @@ globalThis.fetch = async (url, opts = {}) => {
   // ---- mempool.space (fees) ----
   if (u.includes('/fees/recommended')) {
     return jsonOk({ fastestFee: 30, halfHourFee: 12, economyFee: 5, minimumFee: 1 });
+  }
+
+  // ---- Midnight public RPC (author_submitExtrinsic) ----
+  if (u.includes('rpc.')) {
+    const req = JSON.parse(body);
+    net.midnight.calls.push({ url: u, method: req.method, params: req.params });
+    if (req.method === 'author_submitExtrinsic') {
+      if (net.midnight.accepts) {
+        return jsonOk({ jsonrpc: '2.0', id: 1, result: 'cd'.repeat(32) });
+      }
+      return jsonOk({ jsonrpc: '2.0', id: 1, error: { code: 1002, message: 'Verification Error: Invalid transaction' } });
+    }
+    throw new Error('Unexpected Midnight RPC method in smoke test: ' + req.method);
   }
 
   throw new Error('Unexpected fetch in smoke test: ' + u);
@@ -448,7 +462,7 @@ section('Nocturne (sealed private messenger)');
   check('self-mail lands in inbox (unread)', n5.mail.inbox.length === inboxBefore + 1 && n5.mail.inbox[0].subject === 'self check' && n5.mail.inbox[0].read === false);
   check('self-mail kept in sent folder', n5.mail.sent.length === 1 && n5.mail.sent[0].to === 'kshot@nocturne.night');
 
-  // 6 — NIGHT: invalid address rejected, valid address sealed
+  // 6 — NIGHT: invalid address rejected; valid address signed + submitted
   api.state.nc.tab = 'send';
   api.state.nc.send.asset = 'NIGHT';
   api.state.nc.send.stage = 'form';
@@ -461,15 +475,40 @@ section('Nocturne (sealed private messenger)');
   api.state.f['nc.sendamt'] = '12.5';
   api.state.f['nc.sendmemo'] = 'sealed test';
   await api.actNcReview();
-  check('NIGHT review built (sealed)', api.state.nc.send.stage === 'review' && api.state.nc.send.built.sealed === true);
+  const nb = api.state.nc.send.built;
+  check('NIGHT review built a transfer record', api.state.nc.send.stage === 'review' && nb.payload instanceof Uint8Array && nb.hash instanceof Uint8Array && nb.hash.length === 32);
   check('NIGHT amount parsed (6 decimals)', api.state.nc.send.amountMicro === 12500000n);
+  const rec6 = MIDNIGHT.decodeTransfer(nb.payload);
+  check('NIGHT record carries amount + memo + network', Number(rec6.get('amount')) === 12500000 && rec6.get('memo') === 'sealed test' && rec6.get('network') === 'mainnet');
+  check('NIGHT record from = wallet x-only key', bytesToHex(rec6.get('from')) === bytesToHex(api.keysFor('midnight').xOnly));
   await api.actNcConfirm();
   check('confirm opens a password modal', !!api.state.modal && api.state.modal.kind === 'password');
   await api.state.modal.onOk(PASSWORD);
   api.state.modal = null; // emulate the UI closing the modal after success
   const n6 = api.ncState();
-  check('NIGHT receipt recorded as sealed', n6.txs.length === 1 && n6.txs[0].status === 'sealed' && n6.txs[0].asset === 'NIGHT' && !n6.txs[0].txid);
+  const nightTx = n6.txs[0];
+  check('NIGHT receipt: node accepted (stub) → broadcast + txid', nightTx.status === 'broadcast' && nightTx.asset === 'NIGHT' && /^(cd){32}$/.test(nightTx.txid || ''), nightTx.status + ' ' + (nightTx.txid || ''));
+  check('NIGHT receipt: explorer link to Midnight Subscan', /midnight\.subscan\.io\/extrinsic\//.test(nightTx.explorer || ''), nightTx.explorer || '');
+  check('NIGHT receipt keeps signed payload + signature', !!nightTx.signed && typeof nightTx.signed.payload === 'string' && nightTx.signed.signature.length === 128);
+  check('NIGHT signature verifies (BIP340)', MIDNIGHT.verify(hexToBytes(nightTx.signed.signature), sha256(hexToBytes(nightTx.signed.payload)), hexToBytes(nightTx.signed.pubkey)));
+  check('NIGHT submit hit the official RPC', net.midnight.calls.length === 1 && net.midnight.calls[0].url === 'https://rpc.mainnet.midnight.network' && net.midnight.calls[0].method === 'author_submitExtrinsic');
   check('send flow finished on receipt', api.state.nc.send.stage === 'done');
+
+  // 6b — NIGHT: node rejects → honest 'signed' receipt, signature kept
+  api.state.nc.send = { ...api.state.nc.send, stage: 'form', built: null, receipt: null };
+  api.state.f['nc.sendaddr'] = api.addressFor('midnight');
+  api.state.f['nc.sendamt'] = '0.5';
+  api.state.f['nc.sendmemo'] = 'rejected path';
+  await api.actNcReview();
+  net.midnight.accepts = false; // simulate the real node rejecting the v1 record
+  await api.actNcConfirm();
+  await api.state.modal.onOk(PASSWORD);
+  api.state.modal = null;
+  const nightTx2 = api.ncState().txs[0];
+  check('NIGHT receipt: node rejected → status signed', nightTx2.status === 'signed' && !nightTx2.txid && nightTx2.asset === 'NIGHT', nightTx2.status);
+  check('NIGHT receipt: node response recorded', /Verification Error/.test(nightTx2.nodeResponse || ''), String(nightTx2.nodeResponse));
+  check('NIGHT receipt: signed payload still verifiable', MIDNIGHT.verify(hexToBytes(nightTx2.signed.signature), sha256(hexToBytes(nightTx2.signed.payload)), hexToBytes(nightTx2.signed.pubkey)));
+  net.midnight.accepts = true; // restore default for any later sends
 
   // 7 — ADA: real pipeline through Nocturne (build -> sign -> broadcast)
   api.state.nc.send = { ...api.state.nc.send, asset: 'ADA', stage: 'form', built: null, receipt: null };
@@ -495,7 +534,7 @@ section('Nocturne (sealed private messenger)');
   api.lockWallet();
   await api.unlockVault(PASSWORD);
   await api.actNcOpen();
-  check('final reopen restores full state', !!api.ncState() && api.ncState().mail.sent.length === 1 && api.ncState().txs.length === 2);
+  check('final reopen restores full state', !!api.ncState() && api.ncState().mail.sent.length === 1 && api.ncState().txs.length === 3);
 }
 
 /* ---------------------- live USD prices (display-only) --------------------- */

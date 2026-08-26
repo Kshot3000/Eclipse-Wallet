@@ -221,7 +221,7 @@ function explorerTxLink(chain, txid) {
     const host = net.id === 'mainnet' ? 'mempool.space' : 'mempool.space/testnet';
     return `https://${host}/tx/${txid}`;
   }
-  return 'https://midnight.network/';
+  return MIDNIGHT.explorerUrl(net.id, txid);
 }
 
 /* ------------------------------ balances ----------------------------- */
@@ -399,6 +399,64 @@ async function bitcoinSignAndBroadcast(built) {
   return txid;
 }
 
+/* --------------------------- midnight send ---------------------------- */
+
+/**
+ * NIGHT send (v1) — review step: build the canonical transfer record.
+ * Unsigned here; the NightExternal private key is only touched at confirm.
+ */
+async function reviewMidnightSend(toAddress, amountStr, memo) {
+  const net = currentNetwork('midnight');
+  const addrStr = String(toAddress).trim();
+  if (!MIDNIGHT.validateAddress(addrStr)) throw new Error('Not a valid Midnight address (mn_addr… or mn_addr_…)');
+  const dec = MIDNIGHT.decodeAddress(addrStr);
+  if (dec.networkId !== net.networkId) {
+    const where = dec.networkId ? dec.networkId : 'Mainnet';
+    throw new Error(`Recipient is on ${where}, but Eclipse is set to ${net.label}. Switch the network in Settings.`);
+  }
+  const amount = parseAda(amountStr); // NIGHT shares Cardano's 6-decimal unit
+  if (amount <= 0n) throw new Error('Enter an amount greater than zero');
+  const k = keysFor('midnight');
+  const built = MIDNIGHT.buildTransfer({
+    from: k.xOnly,
+    to: dec.payload,
+    amount,
+    memo,
+    network: net.id,
+    ts: Math.floor(Date.now() / 1000),
+  });
+  return { chain: 'midnight', built, toAddress: String(toAddress).trim(), amountMicro: amount };
+}
+
+/**
+ * NIGHT send (v1) — confirm step: sign with the NightExternal key and
+ * submit to Midnight's public RPC (author_submitExtrinsic). Honest outcomes:
+ *   - status 'broadcast': the node accepted the payload and returned a hash
+ *   - status 'signed':    the node rejected it (or was unreachable) — the
+ *                         fully signed payload + signature are retained
+ */
+async function midnightSignAndBroadcast(built, networkId = 'mainnet') {
+  const k = keysFor('midnight');
+  const sig = MIDNIGHT.signTransfer(built, k.privKey);
+  if (!MIDNIGHT.verifyTransfer(built, sig, k.xOnly)) throw new Error('Signature failed self-verification');
+  const signed = {
+    v: 1,
+    scheme: 'bip340-schnorr',
+    pubkey: bytesToHex(k.xOnly),
+    payload: bytesToHex(built.payload),
+    hash: bytesToHex(built.hash),
+    signature: bytesToHex(sig),
+  };
+  const res = await MIDNIGHT.broadcastSigned(signed.payload, networkId);
+  return {
+    status: res.ok ? 'broadcast' : 'signed',
+    txid: res.ok ? res.txid : null,
+    explorer: res.ok ? explorerTxLink('midnight', res.txid) : null,
+    signed,
+    nodeResponse: res.ok ? null : (res.offline ? 'offline' : String(res.error || 'rejected')),
+  };
+}
+
 /* ------------------------- message signing --------------------------- */
 
 /**
@@ -442,9 +500,12 @@ function signChainMessage(chain, message) {
    Sealed DMs, a personal mailbox (you@nocturne.night) and quiet rails for
    NIGHT / ADA / BTC. The state is sealed (AES-256-GCM, key derived from
    the wallet seed) before it is ever written to chrome.storage.local.
-   Requires the wallet to be unlocked; ADA/BTC sends reuse the wallet's
-   real signing + broadcast pipelines, NIGHT transfers are sealed receipts
-   in v1 (Midnight is address + message signing only in this release).
+   Requires the wallet to be unlocked. ADA/BTC sends reuse the wallet's
+   real signing + broadcast pipelines. NIGHT sends build a canonical
+   transfer record, sign it with your NightExternal key (BIP340) and
+   submit it to Midnight's public RPC — the node's response is recorded
+   honestly in the receipt (broadcast / signed), with the signed payload
+   and signature kept sealed in the store.
    ============================== */
 
 let ncKey = null; // AES-GCM CryptoKey derived from the seed — memory only
@@ -454,9 +515,9 @@ let ncTicker = null;
 
 const NC_ASSETS = {
   NIGHT: {
-    symbol: 'NIGHT', name: 'Midnight', chain: 'midnight', sealed: true,
+    symbol: 'NIGHT', name: 'Midnight', chain: 'midnight', sealed: false,
     color: 'var(--xno)', placeholder: 'mn_addr…',
-    hint: 'Sealed now — broadcast lands with Midnight mainnet support.',
+    hint: 'Real send — BIP340-signed with your NightExternal key, then submitted to Midnight RPC.',
   },
   ADA: {
     symbol: 'ADA', name: 'Cardano', chain: 'cardano', sealed: false,
@@ -1410,9 +1471,10 @@ function ncSendReview() {
   const kv = (k, v, mono) => rows.push(`<div class="row"><span class="k">${k}</span><span class="v ${mono ? 'mono' : ''}">${esc(v)}</span></div>`);
   kv('Asset', a.symbol + ' · ' + a.name);
   kv('Recipient', s.toAddress, true);
-  if (a.sealed) {
+  if (a.chain === 'midnight') {
     kv('Amount', formatXno(s.amountMicro));
-    kv('Status', 'Sealed — broadcast arrives with Midnight mainnet support');
+    kv('Network', currentNetwork('midnight').label);
+    kv('Signature', 'BIP340 Schnorr · NightExternal key');
   } else if (a.chain === 'cardano') {
     kv('Amount', formatAda(s.amountLovelace));
     kv('Network fee', formatAda(s.built.fee));
@@ -1438,19 +1500,30 @@ function ncReceipt() {
   const t = state.nc.send.receipt;
   if (!t) return ncSendForm();
   const live = t.status === 'broadcast';
+  const legacySealed = t.status === 'sealed'; // v1 receipts from before signing landed
+  const note = live
+    ? `<div class="mt"><a class="btn block" href="${esc(t.explorer)}" target="_blank" rel="noopener">View on explorer ↗</a></div>`
+    : `<div class="notice info mt">${
+        t.nodeResponse === 'offline'
+          ? 'Midnight RPC was unreachable — the transfer is fully signed and kept on this device.<br>'
+          : t.nodeResponse
+            ? '<b>' + esc(String(t.nodeResponse).slice(0, 160)) + '</b><br>'
+            : ''
+      }${legacySealed
+        ? 'The v1 record is sealed in your store.'
+        : 'Signed with your NightExternal key (BIP340). Midnight nodes do not accept v1 transfer records yet — the fully signed payload and signature are kept in this receipt.'}</div>`;
   return `<div class="nc-receipt ${live ? 'live' : 'sealed'}">
     <div class="nc-receipt-mark">${live ? '✓' : '☾'}</div>
-    <h3>${live ? 'Transaction broadcast' : 'Sealed for the dark'}</h3>
+    <h3>${live ? 'Transaction broadcast' : (legacySealed ? 'Sealed for the dark' : 'Signed for the dark')}</h3>
     <p class="muted small">${esc(t.asset)} · to <span class="mono">${esc(t.to)}</span> · ${ncTime(t.ts)}</p>
     <div class="card flush kv mt">
       <div class="row"><span class="k">Amount</span><span class="v">${esc(t.amountText)}</span></div>
       ${t.memo ? `<div class="row"><span class="k">Memo</span><span class="v">${esc(t.memo)}</span></div>` : ''}
       ${t.txid ? `<div class="row"><span class="k">Tx</span><span class="v mono">${esc(t.txid)}</span></div>` : ''}
+      ${t.signed && t.signed.signature ? `<div class="row"><span class="k">Signature</span><span class="v mono">${esc(t.signed.scheme)} · ${esc(t.signed.signature.slice(0, 24))}…</span></div>` : ''}
       <div class="row"><span class="k">Reference</span><span class="v mono">${esc(t.id)}</span></div>
     </div>
-    ${live
-      ? `<div class="mt"><a class="btn block" href="${esc(t.explorer)}" target="_blank" rel="noopener">View on explorer ↗</a></div>`
-      : '<div class="notice info mt">NIGHT v1: the transfer is sealed and recorded here. It broadcasts when Midnight mainnet support lands.</div>'}
+    ${note}
     <div class="mt"><button class="btn block" data-action="nc:copy-txid" data-text="${esc(t.txid || t.id)}">Copy reference</button></div>
     <div class="mt"><button class="btn primary moon block" data-action="nc:to-activity">View activity</button></div>
   </div>`;
@@ -1471,7 +1544,7 @@ function ncActivity() {
   const rows = txs.map((t) => `
     <div class="nc-tx ${t.status === 'broadcast' ? 'live' : 'sealed'}">
       <div class="grow">
-        <div class="nc-tx-head"><b>${esc(t.asset)}</b><span class="nc-tx-pill ${t.status === 'broadcast' ? 'live' : 'sealed'}">${t.status === 'broadcast' ? 'Broadcast' : 'Sealed'}</span></div>
+        <div class="nc-tx-head"><b>${esc(t.asset)}</b><span class="nc-tx-pill ${t.status === 'broadcast' ? 'live' : 'sealed'}">${t.status === 'broadcast' ? 'Broadcast' : (t.status === 'sealed' ? 'Sealed' : 'Signed')}</span></div>
         <div class="muted small">${esc(t.amountText)} · to <span class="mono">${esc(t.to)}</span></div>
       </div>
       <div class="nc-tx-side">
@@ -2080,10 +2153,10 @@ async function actNcReview() {
   state.busy = true; render();
   try {
     await paint();
-    if (a.sealed) {
-      if (!MIDNIGHT.validateAddress(addr)) throw new Error('Not a valid Midnight address (mn_addr… or mn_addr_…)');
-      const amountMicro = parseAda(amt); // Midnight uses 6 decimals
-      Object.assign(s, { toAddress: addr, amountMicro, amountText: formatXno(amountMicro), built: { sealed: true }, stage: 'review' });
+    if (a.chain === 'midnight') {
+      const memo = ncF('sendmemo').trim();
+      const out = await reviewMidnightSend(addr, amt, memo);
+      Object.assign(s, out, { amountText: formatXno(out.amountMicro), stage: 'review' });
     } else if (a.chain === 'cardano') {
       const out = await reviewCardanoSend(addr, amt);
       Object.assign(s, out, { amountText: formatAda(out.amountLovelace), stage: 'review' });
@@ -2126,8 +2199,14 @@ async function actNcConfirm() {
       await paint();
       const now = Date.now();
       let t;
-      if (a.sealed) {
-        t = { id: nocturne.uid('tx'), asset: 'NIGHT', to: s.toAddress, amountText: s.amountText, memo: s.memo, ts: now, status: 'sealed', txid: null, explorer: null };
+      let toastMsg = 'Broadcast OK';
+      if (a.chain === 'midnight') {
+        const r = await midnightSignAndBroadcast(s.built, currentNetwork('midnight').id);
+        t = {
+          id: nocturne.uid('tx'), asset: 'NIGHT', to: s.toAddress, amountText: s.amountText, memo: s.memo, ts: now,
+          status: r.status, txid: r.txid, explorer: r.explorer, signed: r.signed, nodeResponse: r.nodeResponse,
+        };
+        toastMsg = r.status === 'broadcast' ? 'Broadcast OK' : 'Signed — receipt sealed for the dark';
       } else if (a.chain === 'cardano') {
         const txid = await cardanoSignAndBroadcast(s.built);
         t = { id: nocturne.uid('tx'), asset: 'ADA', to: s.toAddress, amountText: s.amountText, memo: s.memo, ts: now, status: 'broadcast', txid, explorer: explorerTxLink('cardano', txid) };
@@ -2140,8 +2219,8 @@ async function actNcConfirm() {
       s.stage = 'done';
       ['nc.sendaddr', 'nc.sendamt', 'nc.sendmemo'].forEach((k) => { state.f[k] = ''; });
       await ncSave();
-      if (!a.sealed) loadBalance(a.chain);
-      toast(a.sealed ? 'Sealed for the dark' : 'Broadcast OK');
+      if (a.chain === 'cardano' || a.chain === 'bitcoin') loadBalance(a.chain);
+      toast(toastMsg);
     } finally {
       state.busy = false;
       render();
@@ -2394,6 +2473,8 @@ export const api = {
   reviewBitcoinSend,
   cardanoSignAndBroadcast,
   bitcoinSignAndBroadcast,
+  reviewMidnightSend,
+  midnightSignAndBroadcast,
   computeDappResult,
   refreshPending,
   dappDecide,

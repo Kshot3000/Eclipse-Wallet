@@ -499,6 +499,56 @@ section('Midnight HD wallet (BIP32 path m/44\'/2400\'/0\'/0/0)');
   check('midnight address validates', MIDNIGHT.validateAddress(MIDNIGHT.address(k1.xOnly)));
 }
 
+/* -------------------- Midnight transfer records (v1) ------------------ */
+
+section('Midnight transfer records (build / sign / verify / RPC)');
+{
+  const seed = hexToBytes('0101010101010101010101010101010101010101010101010101010101010101');
+  const k = MIDNIGHT.deriveKeys(seed);
+  const to = hexToBytes('ab'.repeat(32));
+  const params = { from: k.xOnly, to, amount: 12500000n, memo: 'eclipse test', network: 'mainnet', ts: 1750000000 };
+
+  const built = MIDNIGHT.buildTransfer(params);
+  check('buildTransfer returns payload + 32B hash', built.payload instanceof Uint8Array && built.payload.length > 40 && built.hash instanceof Uint8Array && built.hash.length === 32);
+  check('hash = SHA-256(payload)', bytesToHex(built.hash) === bytesToHex(sha256(built.payload)));
+  const again = MIDNIGHT.buildTransfer(params);
+  check('buildTransfer is deterministic', bytesToHex(again.payload) === bytesToHex(built.payload) && bytesToHex(again.hash) === bytesToHex(built.hash));
+
+  const rec = MIDNIGHT.decodeTransfer(built.payload);
+  check('payload is a CBOR map with 10 fields', rec instanceof Map && rec.size === 10, String(rec instanceof Map ? rec.size : typeof rec));
+  check('record fields decode (kind/amount/memo/network)', rec.get('kind') === 'eclipse.transfer.v1' && rec.get('v') === 1 && Number(rec.get('amount')) === 12500000 && rec.get('memo') === 'eclipse test' && rec.get('network') === 'mainnet');
+  check('record from = x-only key, to = payload', bytesToHex(rec.get('from')) === bytesToHex(k.xOnly) && bytesToHex(rec.get('to')) === 'ab'.repeat(32));
+
+  const sig = MIDNIGHT.signTransfer(built, k.privKey);
+  check('signTransfer produces a 64-byte signature', sig instanceof Uint8Array && sig.length === 64);
+  check('verifyTransfer accepts the valid signature', MIDNIGHT.verifyTransfer(built, sig, k.xOnly) === true);
+  const tampered = MIDNIGHT.buildTransfer({ ...params, amount: 12500001n });
+  check('verifyTransfer rejects a different amount', MIDNIGHT.verifyTransfer(tampered, sig, k.xOnly) === false);
+  const otherKey = MIDNIGHT.deriveKeys(seed, 1);
+  check('verifyTransfer rejects a different key', MIDNIGHT.verifyTransfer(built, sig, otherKey.xOnly) === false);
+
+  let threw = false;
+  try { MIDNIGHT.buildTransfer({ from: new Uint8Array(31), to, amount: 1n, network: 'mainnet', ts: 1 }); } catch { threw = true; }
+  check('buildTransfer rejects a 31-byte from key', threw);
+  threw = false;
+  try { MIDNIGHT.buildTransfer({ from: k.xOnly, to, amount: -1n, network: 'mainnet', ts: 1 }); } catch { threw = true; }
+  check('buildTransfer rejects a negative amount', threw);
+  threw = false;
+  try { MIDNIGHT.buildTransfer({ from: k.xOnly, to, amount: (1n << 64n), network: 'mainnet', ts: 1 }); } catch { threw = true; }
+  check('buildTransfer rejects an out-of-range amount', threw);
+  threw = false;
+  try { MIDNIGHT.buildTransfer({ from: k.xOnly, to, amount: 1n, network: 'nope', ts: 1 }); } catch { threw = true; }
+  check('buildTransfer rejects an unknown network', threw);
+
+  check('rpcUrl(mainnet)', MIDNIGHT.rpcUrl('mainnet') === 'https://rpc.mainnet.midnight.network');
+  check('rpcUrl(preprod)', MIDNIGHT.rpcUrl('preprod') === 'https://rpc.preprod.midnight.network');
+  check('rpcUrl(preview)', MIDNIGHT.rpcUrl('preview') === 'https://rpc.preview.midnight.network');
+  check('rpcUrl(null) defaults to mainnet', MIDNIGHT.rpcUrl(null) === 'https://rpc.mainnet.midnight.network');
+  const txid = 'ab'.repeat(32);
+  check('explorerUrl mainnet links Midnight Subscan', MIDNIGHT.explorerUrl('mainnet', txid) === 'https://midnight.subscan.io/extrinsic/' + txid);
+  check('explorerUrl preprod links the polkadot.js app with the RPC', MIDNIGHT.explorerUrl('preprod', txid).startsWith('https://polkadot.js.org/apps/?rpc='));
+}
+
 /* ------------------------------ Cardano ---------------------------- */
 
 section('Cardano (derivation, address, tx pipeline)');

@@ -35,6 +35,9 @@
     "https://api.koios.rest/*",
     "https://blockstream.info/*",
     "https://mempool.space/*",
-    "https://api.coingecko.com/*"
+    "https://api.coingecko.com/*",
+    "https://rpc.mainnet.midnight.network/*",
+    "https://rpc.preprod.midnight.network/*",
+    "https://rpc.preview.midnight.network/*"
   ]
 }

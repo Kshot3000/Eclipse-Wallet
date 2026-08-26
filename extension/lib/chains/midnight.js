@@ -5,17 +5,30 @@
  * - Public key: BIP340 x-only (32 bytes)
  * - Address: bech32m, HRP `mn_addr` (or `mn_addr_<network>`), payload = SHA256(x-only pubkey)
  * - Signing: BIP340 Schnorr over a 32-byte message (tx hash / dApp message)
+ * - Transfers (v1): canonical CBOR record → BIP340 signature → submitted to
+ *   the official public RPC (author_submitExtrinsic); see transfer section.
  */
 import { sha256 } from '../../vendor/hashes/sha2.js';
 import * as secp256k1 from '../../vendor/secp256k1.js';
 import { deriveSecpPath } from '../slip10.js';
 import { encodeBytes, decodeBytes, BECH32M_CONST } from '../bech32.js';
 import { concatBytes, utf8ToBytes } from '../bytes.js';
+import { cborEncodeCanonical, cborDecode } from '../cbor.js';
 
 const N = secp256k1.CURVE.n;
 const P = secp256k1.CURVE.p;
 const Point = secp256k1.ProjectivePoint;
 const G = Point.fromAffine({ x: secp256k1.CURVE.Gx, y: secp256k1.CURVE.Gy });
+
+/** Official Midnight public RPC endpoints (verified live: `system_chain`
+ *  returns "Midnight Mainnet" / "Midnight Preprod" / "Midnight Preview"). */
+const RPC_URLS = {
+  mainnet: 'https://rpc.mainnet.midnight.network',
+  preprod: 'https://rpc.preprod.midnight.network',
+  preview: 'https://rpc.preview.midnight.network',
+};
+
+const MAX_U64 = (1n << 64n) - 1n;
 
 function mod(a, m = P) {
   const r = a % m;
@@ -62,8 +75,8 @@ export const MIDNIGHT = {
   color: '#0A0A0F',
   networks: {
     mainnet: { id: 'mainnet', networkId: null, label: 'Mainnet' },
-    testnet: { id: 'testnet', networkId: 'testnet', label: 'Testnet' },
-    devnet: { id: 'devnet', networkId: 'devnet', label: 'Devnet' },
+    preprod: { id: 'preprod', networkId: 'preprod', label: 'Preprod' },
+    preview: { id: 'preview', networkId: 'preview', label: 'Preview' },
   },
   defaultNetwork: 'mainnet',
 
@@ -150,6 +163,115 @@ export const MIDNIGHT = {
     ), N);
     // BIP340: check R == s*G - e*Q  (equivalently s*G == R + e*Q)
     return G.mul(s).equals(R.add(Q.mul(e)));
+  },
+
+  /* ------------------------ transfer records (v1) -----------------------
+   * v1 NIGHT transfers are canonical, versioned transfer records:
+   *   1. buildTransfer()   — deterministic CBOR record (from, to, amount,
+   *                          fee, memo, network, ts) + its SHA-256 hash
+   *   2. signTransfer()    — BIP340 Schnorr over the record hash with the
+   *                          NightExternal (unshielded) key
+   *   3. broadcastSigned() — JSON-RPC author_submitExtrinsic to the
+   *                          official public RPC for the selected network
+   *
+   * Midnight's native ledger (ZK-proof) transaction format is built by the
+   * Midnight SDK; until that integration lands, nodes will reject v1 records.
+   * The wallet keeps the fully signed payload + signature sealed in the
+   * receipt and reports the node's response honestly (no fake confirms).
+   * ---------------------------------------------------------------------- */
+
+  /** Official public RPC endpoint for a network (mainnet is the default). */
+  rpcUrl(networkId = null) {
+    return RPC_URLS[networkId] || RPC_URLS.mainnet;
+  },
+
+  /** Explorer link for a tx hash (mainnet: Midnight Subscan; testnets: polkadot.js app). */
+  explorerUrl(networkId = null, txid = null) {
+    const net = networkId || 'mainnet';
+    if (net === 'mainnet' && txid) return `https://midnight.subscan.io/extrinsic/${txid}`;
+    const rpc = encodeURIComponent(RPC_URLS[net] || RPC_URLS.mainnet);
+    return `https://polkadot.js.org/apps/?rpc=${rpc}#/explorer`;
+  },
+
+  /**
+   * Build the canonical transfer record (unsigned).
+   * @param {object} p  {from: 32B x-only key, to: 32B address payload,
+   *                     amount: bigint u64 micro-NIGHT, fee?: bigint u64 DUST,
+   *                     memo?: string, network: 'mainnet'|'preprod'|'preview',
+   *                     ts: unix seconds, nonce?: bigint}
+   * @returns {{payload: Uint8Array, hash: Uint8Array}}
+   */
+  buildTransfer({ from, to, amount, fee = 0n, memo = '', network = 'mainnet', ts, nonce = 0n }) {
+    if (!(from instanceof Uint8Array) || from.length !== 32) throw new Error('buildTransfer: from must be 32 bytes (x-only key)');
+    if (!(to instanceof Uint8Array) || to.length !== 32) throw new Error('buildTransfer: to must be 32 bytes (address payload)');
+    const amt = BigInt(amount);
+    if (amt < 0n || amt > MAX_U64) throw new Error('buildTransfer: amount out of u64 range');
+    const feeU = BigInt(fee);
+    if (feeU < 0n || feeU > MAX_U64) throw new Error('buildTransfer: fee out of u64 range');
+    const net = String(network || 'mainnet');
+    if (!RPC_URLS[net]) throw new Error('buildTransfer: unknown Midnight network: ' + net);
+    const t = BigInt(Math.floor(Number(ts))); // NaN/Infinity throw here
+    if (t < 0n || t > MAX_U64) throw new Error('buildTransfer: bad timestamp');
+    const record = {
+      v: 1,
+      kind: 'eclipse.transfer.v1',
+      network: net,
+      from,
+      to,
+      amount: amt,
+      fee: feeU,
+      memo: String(memo == null ? '' : memo).slice(0, 140),
+      ts: t,
+      nonce: BigInt(nonce),
+    };
+    const payload = cborEncodeCanonical(record);
+    return { payload, hash: sha256(payload) };
+  },
+
+  /** Decode a transfer-record payload back to its field map (display/audit). */
+  decodeTransfer(payload) {
+    return cborDecode(payload);
+  },
+
+  /** Sign a built transfer with the NightExternal private key. Returns the 64-byte BIP340 signature over the record hash. */
+  signTransfer(built, privKey, auxRand) {
+    if (!built || !(built.payload instanceof Uint8Array) || !(built.hash instanceof Uint8Array)) {
+      throw new Error('signTransfer: expected a built transfer');
+    }
+    return this.sign(built.hash, privKey, auxRand);
+  },
+
+  /** Verify a 64-byte transfer signature against the built record + 32-byte x-only key. */
+  verifyTransfer(built, sig, xOnly) {
+    if (!built || !(built.hash instanceof Uint8Array)) throw new Error('verifyTransfer: expected a built transfer');
+    return this.verify(sig, built.hash, xOnly);
+  },
+
+  /**
+   * Submit a signed transfer payload (hex) to Midnight's public RPC via
+   * JSON-RPC `author_submitExtrinsic`. Honest result object:
+   *   ok:true  → node accepted it (txid = its 32-byte hash)
+   *   ok:false → node rejected it (error = the node's message) or the RPC
+   *              was unreachable (offline:true)
+   */
+  async broadcastSigned(payloadHex, networkId = null) {
+    const url = this.rpcUrl(networkId);
+    const body = JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'author_submitExtrinsic', params: [String(payloadHex)] });
+    let res;
+    try {
+      res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
+    } catch (e) {
+      return { ok: false, offline: true, error: 'Midnight RPC unreachable — ' + ((e && e.message) || 'network error') };
+    }
+    let json = null;
+    try { json = await res.json(); } catch { json = null; }
+    if (json && typeof json.result === 'string' && json.result) {
+      return { ok: true, txid: json.result };
+    }
+    if (json && json.error) {
+      return { ok: false, code: json.error.code, error: json.error.message || 'node rejected the payload' };
+    }
+    return { ok: false, error: 'Unexpected Midnight RPC response (HTTP ' + res.status + ')' };
   },
 };
 

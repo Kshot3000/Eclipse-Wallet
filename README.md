@@ -20,12 +20,20 @@
 |---|---|---|---|
 | Addresses | base (`addr1…`), stake (`stake1…`), enterprise (`addr1v…`) | unshielded (`mn_addr…`, bech32m) | native segwit P2WPKH (`bc1…`) |
 | Balance | live, from on-chain UTXOs (Koios) | *v1: not available* | live (Blockstream, funded − spent) |
-| Send | ✅ ADA transfers (fee auto, UTXO selection, TTL from chain tip) | *v1: not available* | ✅ BTC transfers (fee tiers: fastest / half-hour / economy) |
+| Send | ✅ ADA transfers (fee auto, UTXO selection, TTL from chain tip) | ⚠ v1: BIP340-signed transfer record, submitted to Midnight RPC (native ledger sends pending) | ✅ BTC transfers (fee tiers: fastest / half-hour / economy) |
 | Sign message | ✅ Ed25519 over the raw message | ✅ BIP340 Schnorr over the raw message | ✅ ECDSA over SHA-256(message) |
-| Explorer links | cardanoscan.io | — | mempool.space |
-| Networks | Mainnet / Preview / Preprod | Mainnet / Testnet / Devnet | Mainnet / Testnet |
+| Explorer links | cardanoscan.io | midnight.subscan.io (mainnet) | mempool.space |
+| Networks | Mainnet / Preview / Preprod | Mainnet / Preprod / Preview | Mainnet / Testnet |
 
 Plus: QR codes for every address, per-chain network selection, lock/wipe, and a dApp approval queue with a badge counter and desktop notification when a request arrives while the popup is closed.
+
+### Nocturne — private messenger, in the wallet
+
+Nocturne (the Eclipse edition of [kshot9000.github.io/nocturne](https://kshot9000.github.io/nocturne/)) lives inside the wallet as the **Nocturne** tab:
+
+- **Sealed DMs + mailbox** — private chats and a personal mailbox (`you@nocturne.night`). All state is sealed with **AES-256-GCM** using a key derived from your wallet seed (SHA-256 of `seed || "nocturne/v1"`) before it touches browser storage. No server, no plaintext at rest.
+- **Quiet rails for NIGHT / ADA / BTC** — ADA and BTC sends settle through the wallet's real signing + broadcast pipelines. NIGHT sends build a **canonical CBOR transfer record** (from, to, amount, memo, network, ts), sign it with your **NightExternal key (BIP340 Schnorr)** and submit it to the **official Midnight RPC** (`author_submitExtrinsic`). The node's response is recorded honestly in the receipt — `broadcast` (accepted, with txid + explorer) or `signed` (rejected/unreachable, with the node's message and your fully signed payload + signature kept in the sealed store). Native Midnight-ledger (ZK-proof) transfers land with the Midnight SDK integration.
+- Demo residents are labelled as demo; the encryption and rails are the real thing.
 
 ## Install (Chrome or Brave)
 
@@ -132,15 +140,15 @@ website/                   GitHub Pages site (vanilla HTML/CSS/JS, no build step
 Both suites run fully **offline** on **Node 22+** (Node's built-in WebCrypto is used for the vault):
 
 ```bash
-node tests/run_tests.mjs       # unit: 139 checks against official vectors
-node tests/smoke_extension.mjs # integration: 99 checks (fake chrome + stubbed network)
+node tests/run_tests.mjs       # unit: 159 checks against official vectors
+node tests/smoke_extension.mjs # integration: 108 checks (fake chrome + stubbed network)
 ```
 
-Coverage highlights: BIP39 (official vectors, English wordlist), SLIP-0010 ed25519/secp256k1 chains, RFC 8032 Ed25519 sign/verify, BIP143 sighash + byte-exact signed transactions, BIP340 (27 official vectors), BIP84/BIP-173 addresses, Midnight SDK vectors, CBOR (RFC 8949 Appendix A), BLAKE2b KATs, plus the full build→sign→broadcast pipelines for ADA and BTC and the dApp approval queue — with every signature independently verified against the spec.
+Coverage highlights: BIP39 (official vectors, English wordlist), SLIP-0010 ed25519/secp256k1 chains, RFC 8032 Ed25519 sign/verify, BIP143 sighash + byte-exact signed transactions, BIP340 (27 official vectors), BIP84/BIP-173 addresses, Midnight SDK vectors, CBOR (RFC 8949 Appendix A), BLAKE2b KATs, plus the full build→sign→broadcast pipelines for ADA and BTC, the NIGHT signed transfer-record pipeline (accepted **and** node-rejected paths), the Nocturne sealed messenger and the dApp approval queue — with every signature independently verified against the spec.
 
 ## Known limitations (v0.1)
 
-- **Midnight v1** is address + BIP340 message-signing only — no on-chain Midnight transactions or balances yet.
+- **Midnight v1** — NIGHT sends build a canonical transfer record, sign it with your NightExternal key (BIP340) and submit it to Midnight's public RPC. Nodes will not accept v1 records until the native Midnight-ledger (ZK-proof) transaction format (Midnight SDK) is supported — the fully signed payload + signature are kept in the receipt, and the node's response is shown honestly. No Midnight balances yet (unshielded balance queries require the Midnight SDK).
 - **Bitcoin**: native P2WPKH only (no P2SH-legacy, no Taproot); one input per transaction; no RBF.
 - **Cardano**: ADA only (no native tokens in the send form), no delegation/staking operations, no CIP-30.
 - **BIP39 English wordlist only** (the standard 2048 words).
