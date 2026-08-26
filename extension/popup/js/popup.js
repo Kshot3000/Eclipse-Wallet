@@ -17,7 +17,8 @@ import {
 import { vaultEncrypt, vaultDecrypt, vaultToStorage, vaultFromStorage } from '../../lib/vault.js';
 import { CARDANO, formatAda } from '../../lib/chains/cardano.js';
 import { BITCOIN, formatBtc } from '../../lib/chains/bitcoin.js';
-import { MIDNIGHT } from '../../lib/chains/midnight.js';
+import { MIDNIGHT, formatXno } from '../../lib/chains/midnight.js';
+import * as nocturne from '../../lib/nocturne.js';
 import { utf8ToBytes, bytesToHex } from '../../lib/bytes.js';
 import * as ed25519 from '../../vendor/ed25519.js';
 import * as secp256k1 from '../../vendor/secp256k1.js';
@@ -67,6 +68,8 @@ const state = {
   pending: [],           // dApp requests awaiting a decision
   approvals: {},         // origin -> {chains, ts}
   txDone: null,          // {chain, txid} for the success screen
+  nc: null,              // Nocturne UI state (null until the tab is opened)
+  ncLoadError: false,    // sealed store failed to open — offer reset
   modal: null,           // {kind:'password', title, body, okLabel, onOk} | {kind:'confirm', ...}
   modalError: null,
 };
@@ -172,6 +175,9 @@ function lockWallet() {
   seedBytes = null;
   keysCache.clear();
   state.balances = {};
+  // Nocturne: drop the derived key + decrypted messenger state from memory;
+  // the sealed store in storage is re-opened (re-derived) on next unlock.
+  if (typeof ncKey !== 'undefined') { ncKey = null; ncStateObj = null; ncStopTicker(); }
 }
 
 function requireUnlocked() {
@@ -431,6 +437,113 @@ function signChainMessage(chain, message) {
   throw new Error('Unknown chain: ' + chain);
 }
 
+/* ============================== NOCTURNE ==============================
+   Nocturne — the private messenger that lives inside Eclipse.
+   Sealed DMs, a personal mailbox (you@nocturne.night) and quiet rails for
+   NIGHT / ADA / BTC. The state is sealed (AES-256-GCM, key derived from
+   the wallet seed) before it is ever written to chrome.storage.local.
+   Requires the wallet to be unlocked; ADA/BTC sends reuse the wallet's
+   real signing + broadcast pipelines, NIGHT transfers are sealed receipts
+   in v1 (Midnight is address + message signing only in this release).
+   ============================== */
+
+let ncKey = null; // AES-GCM CryptoKey derived from the seed — memory only
+let ncStateObj = null; // decrypted messenger state — memory only
+let ncSaveQueue = Promise.resolve();
+let ncTicker = null;
+
+const NC_ASSETS = {
+  NIGHT: {
+    symbol: 'NIGHT', name: 'Midnight', chain: 'midnight', sealed: true,
+    color: 'var(--xno)', placeholder: 'mn_addr…',
+    hint: 'Sealed now — broadcast lands with Midnight mainnet support.',
+  },
+  ADA: {
+    symbol: 'ADA', name: 'Cardano', chain: 'cardano', sealed: false,
+    color: 'var(--ada)', placeholder: 'addr1… / addr_test1…',
+    hint: 'Real send — signed with your key and broadcast.',
+  },
+  BTC: {
+    symbol: 'BTC', name: 'Bitcoin', chain: 'bitcoin', sealed: false,
+    color: 'var(--btc)', placeholder: 'bc1… / tb1…',
+    hint: 'Real send — signed with your key and broadcast.',
+  },
+};
+
+function ncAsset(sym) { return NC_ASSETS[sym] || NC_ASSETS.NIGHT; }
+function ncF(key) { return String(state.f['nc.' + key] || ''); }
+
+function ncTime(ts) {
+  if (!ts) return '';
+  const diff = Date.now() - ts;
+  if (diff < 60000) return 'now';
+  if (diff < 3600000) return Math.floor(diff / 60000) + 'm';
+  if (diff < 86400000) return Math.floor(diff / 3600000) + 'h';
+  return new Date(ts).toLocaleDateString();
+}
+
+function ncConvo(id) {
+  return ncStateObj ? (ncStateObj.convos.find((c) => c.id === id) || null) : null;
+}
+
+function ncDefaultUI() {
+  return {
+    tab: 'chats',
+    convoId: null,
+    mailTab: 'inbox',
+    mailId: null,
+    composing: false,
+    newChatOpen: false,
+    send: { asset: 'NIGHT', stage: 'form', toAddress: '', amountText: '', memo: '', built: null, feeRate: null, receipt: null },
+  };
+}
+
+/** Load (or detect absence of) the sealed Nocturne state. */
+async function ncEnsure() {
+  const seed = requireUnlocked();
+  if (!ncKey) ncKey = await nocturne.deriveDeviceKey(seed);
+  const o = await store.get([nocturne.STORAGE_KEY]);
+  const sealed = o[nocturne.STORAGE_KEY];
+  if (!sealed) { ncStateObj = null; return null; }
+  ncStateObj = await nocturne.openState(sealed, ncKey);
+  nocturne.settle(ncStateObj);
+  return ncStateObj;
+}
+
+/** Seal + persist the messenger state (queued, non-blocking). */
+function ncSave() {
+  if (!ncKey || !ncStateObj) return Promise.resolve();
+  ncSaveQueue = ncSaveQueue.then(async () => {
+    const blob = await nocturne.sealState(ncKey, ncStateObj);
+    await store.set({ [nocturne.STORAGE_KEY]: blob });
+  }).catch(() => { /* storage hiccup — in-memory copy stays authoritative */ });
+  return ncSaveQueue;
+}
+
+/** Advance deterministic time state (ticks, typing, replies) + persist. */
+function ncSettleTick() {
+  if (!ncStateObj) return;
+  const changed = nocturne.settle(ncStateObj);
+  if (changed) ncSave();
+}
+
+function ncStartTicker() {
+  // UI-only concern: in Node (tests) there is no DOM, and a live interval
+  // would keep the process alive. Deterministic settling still happens on
+  // every load and on ncSettleTick() calls.
+  if (ncTicker || typeof setInterval === 'undefined' || typeof document === 'undefined') return;
+  const t = setInterval(() => {
+    ncSettleTick();
+    if (state.view === 'nocturne' && dom()) render();
+  }, 1000);
+  if (typeof t.unref === 'function') t.unref();
+  ncTicker = t;
+}
+
+function ncStopTicker() {
+  if (ncTicker) { clearInterval(ncTicker); ncTicker = null; }
+}
+
 /* ------------------------------ dApps -------------------------------- */
 
 async function refreshPending() {
@@ -623,13 +736,14 @@ function topbar() {
 
 function bottomNav() {
   const v = state.view;
-  if (!['wallet', 'dapps', 'settings'].includes(v)) return '';
+  if (!['wallet', 'dapps', 'settings', 'nocturne'].includes(v)) return '';
   const item = (id, ico, label, active, n) => `
     <button data-action="nav:${id}" class="${active ? 'active' : ''}">
       <span class="ico ${n ? 'badge' : ''}" ${n ? `data-n="${n}"` : ''}>${ico}</span>${label}
     </button>`;
   return `<nav class="bottomnav">
     ${item('wallet', '◈', 'Wallet', v === 'wallet', 0)}
+    ${item('nocturne', '☾', 'Nocturne', v === 'nocturne', 0)}
     ${item('dapps', '⬡', 'dApps', v === 'dapps', state.pending.length)}
     ${item('settings', '⚙', 'Settings', v === 'settings', 0)}
   </nav>`;
@@ -640,12 +754,13 @@ function viewOnboarding() {
     <div class="hero">
       ${logoMark(64)}
       <h1>Eclipse Wallet</h1>
-      <p>One self-custody wallet for <b>Cardano</b>, <b>Midnight</b> and <b>Bitcoin</b>.
+      <div class="trio-line" aria-hidden="true"></div>
+      <p>One self-custody wallet for <b class="c-cardano">Cardano</b>, <b class="c-mid">Midnight</b> and <b class="c-btc">Bitcoin</b>.
          Your keys are generated and used on this device only.</p>
       <div class="chips">
-        <span class="chip" style="--c:${CHAIN_META.cardano.color}">ADA</span>
-        <span class="chip" style="--c:${CHAIN_META.midnight.color}">NIGHT</span>
-        <span class="chip" style="--c:${CHAIN_META.bitcoin.color}">BTC</span>
+        <span class="chip" style="--c:${CHAIN_META.cardano.color}">◈ ADA</span>
+        <span class="chip" style="--c:${CHAIN_META.midnight.color}">☾ NIGHT</span>
+        <span class="chip" style="--c:${CHAIN_META.bitcoin.color}">₿ BTC</span>
       </div>
     </div>
     <div class="card flush">
@@ -758,6 +873,70 @@ function addressCard(chain) {
   </div>`;
 }
 
+/* --------------------------- live USD prices ---------------------------
+   Display-only: USD values shown next to balances (CoinGecko public API).
+   Prices never influence signing, fees or broadcast — when the fetch fails
+   (offline, rate-limited) the USD line is simply not rendered. */
+const PRICE_TTL_MS = 60000;
+const prices = { data: null, ts: 0, inFlight: null };
+
+function fmtUsd(n) {
+  if (n == null || !isFinite(Number(n))) return null;
+  const v = Number(n);
+  const opts = v < 1 ? { minimumFractionDigits: 2, maximumFractionDigits: 4 }
+                     : { maximumFractionDigits: 2 };
+  return '$' + v.toLocaleString('en-US', opts);
+}
+
+async function refreshPrices(force = false) {
+  const fresh = prices.data != null && Date.now() - prices.ts < PRICE_TTL_MS;
+  if (fresh && !force) return prices.data;
+  if (prices.inFlight) return prices.inFlight;
+  prices.inFlight = (async () => {
+    try {
+      const ctl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+      const t = ctl ? setTimeout(() => ctl.abort(), 8000) : null;
+      const r = await fetch(
+        'https://api.coingecko.com/api/v3/simple/price?ids=cardano,bitcoin,midnight-3&vs_currencies=usd',
+        { headers: { accept: 'application/json' }, signal: ctl ? ctl.signal : undefined }
+      );
+      if (t) clearTimeout(t);
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const p = await r.json();
+      prices.data = {
+        cardano:  p.cardano && p.cardano.usd != null ? Number(p.cardano.usd) : null,
+        bitcoin:  p.bitcoin && p.bitcoin.usd != null ? Number(p.bitcoin.usd) : null,
+        midnight: p['midnight-3'] && p['midnight-3'].usd != null ? Number(p['midnight-3'].usd) : null,
+      };
+      prices.ts = Date.now();
+      return prices.data;
+    } catch {
+      return prices.data; // keep previous values (or null) — UI degrades gracefully
+    } finally {
+      prices.inFlight = null;
+    }
+  })();
+  return prices.inFlight;
+}
+
+function usdLine(chain) {
+  const p = prices.data;
+  if (!p) return '';
+  const b = state.balances[chain];
+  if (chain === 'cardano' && typeof b?.lovelace === 'bigint' && p.cardano != null) {
+    const u = fmtUsd(Number(b.lovelace) / 1e6 * p.cardano);
+    if (u) return `<div class="usd">≈ ${u}</div>`;
+  }
+  if (chain === 'bitcoin' && typeof b?.sats === 'bigint' && p.bitcoin != null) {
+    const u = fmtUsd(Number(b.sats) / 1e8 * p.bitcoin);
+    if (u) return `<div class="usd">≈ ${u}</div>`;
+  }
+  if (chain === 'midnight' && p.midnight != null) {
+    return `<div class="usd">1 NIGHT ≈ ${fmtUsd(p.midnight)}</div>`;
+  }
+  return '';
+}
+
 function balanceHero(chain) {
   const b = state.balances[chain];
   const net = currentNetwork(chain);
@@ -779,11 +958,13 @@ function balanceHero(chain) {
   }
   const meta = CHAIN_META[chain];
   return `<div class="balance-hero" data-chain="${chain}">
+    <div class="hero-glyph" aria-hidden="true">${meta.icon}</div>
     <div class="muted small" style="display:flex;align-items:center;gap:7px">
       <span style="width:9px;height:9px;border-radius:50%;background:${meta.color};display:inline-block"></span>
       ${CHAIN[chain].name} · ${meta.symbol}
     </div>
     <div class="amount" style="margin-top:6px">${b?.loading ? '<span class="spinner"></span> Loading…' : esc(amount)}</div>
+    ${usdLine(chain)}
     <div class="sub">${esc(sub)}</div>
     <div style="margin-top:12px;display:flex;gap:8px">
       <button class="btn sm" data-action="refresh" ${state.balances[chain]?.loading ? 'disabled' : ''}>↻ Refresh</button>
@@ -802,7 +983,7 @@ function viewWallet() {
     <div class="tabs">
       ${['cardano', 'midnight', 'bitcoin'].map((c) => `
         <button data-action="chain" data-chain="${c}" class="${c === chain ? 'active' : ''}">
-          <span class="sym" style="background:${CHAIN_META[c].color}"></span>${CHAIN_META[c].symbol}
+          <span class="sym" aria-hidden="true">${CHAIN_META[c].icon}</span>${CHAIN_META[c].symbol}
         </button>`).join('')}
     </div>
     ${balanceHero(chain)}
@@ -817,7 +998,7 @@ function viewWallet() {
       </div>
     </div>
     <div style="display:flex;gap:8px;margin-bottom:12px">
-      ${canSend ? '<button class="btn primary" style="flex:1" data-action="send">Send</button>' : '<button class="btn" style="flex:1" disabled title="Midnight v1: address + sign message only">Send</button>'}
+      ${canSend ? `<button class="btn ${chain === 'bitcoin' ? 'orange' : 'primary'}" style="flex:1" data-action="send">Send</button>` : '<button class="btn" style="flex:1" disabled title="Midnight v1: address + sign message only">Send</button>'}
       <button class="btn" style="flex:1" data-action="receive">Receive</button>
       <button class="btn" style="flex:1" data-action="signmsg">Sign msg</button>
     </div>
@@ -881,9 +1062,9 @@ function viewSend() {
     </div>` : ''}
     ${reviewHtml}
     ${s.stage === 'review'
-      ? `<button class="btn primary block" data-action="send:confirm">Confirm &amp; sign</button>
+      ? `<button class="btn ${chain === 'bitcoin' ? 'orange' : 'primary'} block" data-action="send:confirm">Confirm &amp; sign</button>
          <div class="mt"><button class="btn ghost block" data-action="send:edit">← Edit details</button></div>`
-      : `<button class="btn primary block" data-action="send:review" ${state.busy ? 'disabled' : ''}>${state.busy ? '<span class="spinner"></span> Building…' : 'Build &amp; review'}</button>`}
+      : `<button class="btn ${chain === 'bitcoin' ? 'orange' : 'primary'} block" data-action="send:review" ${state.busy ? 'disabled' : ''}>${state.busy ? '<span class="spinner"></span> Building…' : 'Build &amp; review'}</button>`}
     <div class="mt"><button class="btn ghost block" data-action="send:back">Back to wallet</button></div>
   </div>
   ${bottomNav()}`;
@@ -912,7 +1093,7 @@ function viewSignMsg() {
     <div class="field"><label>Message (UTF-8)</label>
       <textarea data-f="signmsgtext" rows="5" placeholder="Type the message to sign…">${esc(state.f.signmsgtext || '')}</textarea>
     </div>
-    <button class="btn primary block" data-action="sign:go" ${state.busy ? 'disabled' : ''}>${state.busy ? '<span class="spinner"></span> Signing…' : 'Sign message'}</button>
+    <button class="btn ${chain === 'bitcoin' ? 'orange' : 'primary'} block" data-action="sign:go" ${state.busy ? 'disabled' : ''}>${state.busy ? '<span class="spinner"></span> Signing…' : 'Sign message'}</button>
     <div class="mt"><button class="btn ghost block" data-action="sign:back">Back to wallet</button></div>
     ${r ? `<div class="card flush mt">
       <div class="row"><div class="grow"><div class="muted small">Scheme</div><div>${esc(r.scheme)}</div></div></div>
@@ -1026,6 +1207,296 @@ function viewTxDone() {
   ${bottomNav()}`;
 }
 
+/* --------------------------- Nocturne views --------------------------- */
+
+function ncHeader() {
+  const p = ncStateObj.profile;
+  return `<div class="nc-head">
+    <div class="nc-ident">
+      <div class="nc-orb">☾</div>
+      <div class="grow">
+        <div class="nc-handle">@${esc(p.handle)}</div>
+        <div class="nc-mailbox mono" data-action="nc:copy-mailbox" title="Copy mailbox">${esc(p.mailbox)}</div>
+      </div>
+      <span class="nc-lock">🔒 AES-256-GCM</span>
+    </div>
+    <div class="nc-head-actions">
+      <span class="nc-local">local only</span>
+      <button class="btn sm ghost" data-action="nc:clear" title="Clear Nocturne data from this device">Clear</button>
+    </div>
+  </div>`;
+}
+
+function ncTabs() {
+  const tabs = [['chats', 'Chats'], ['mail', 'Mail'], ['send', 'Send'], ['activity', 'Activity']];
+  const unread = ncStateObj.mail.inbox.filter((m) => !m.read).length;
+  return `<div class="nc-tabs">${tabs.map(([id, label]) =>
+    `<button data-action="nc:sub" data-tab="${id}" class="${state.nc.tab === id ? 'active' : ''}">${label}${id === 'mail' && unread ? `<span class="nc-dot">${unread}</span>` : ''}</button>`).join('')}</div>`;
+}
+
+function ncOnboarding() {
+  const handle = ncF('handle').trim().toLowerCase();
+  const valid = nocturne.validHandle(handle);
+  return `<div class="nc-onb">
+    <div class="nc-orb big">☾</div>
+    <h2>Nocturne</h2>
+    <p class="muted small">The quiet side of Eclipse — private chats, your own mailbox, and NIGHT / ADA / BTC rails. Every record is sealed on this device before it is stored.</p>
+    ${errBox()}
+    <div class="field"><label>Your handle</label>
+      <input data-f="nc.handle" maxlength="24" placeholder="kshot" value="${esc(ncF('handle'))}" autocomplete="off" spellcheck="false" style="font-family:var(--mono)">
+      <div class="hint">${handle
+        ? (valid ? `Your mailbox: <b class="mono">${esc(handle)}@${esc(nocturne.DOMAIN)}</b>` : '3–24 lowercase letters, numbers or underscores')
+        : '3–24 lowercase letters, numbers or underscores'}</div>
+    </div>
+    <button class="btn primary moon block" data-action="nc:create" ${!valid || state.busy ? 'disabled' : ''}>
+      ${state.busy ? '<span class="spinner"></span> Sealing…' : 'Step into the dark'}
+    </button>
+    ${state.ncLoadError ? `<div class="notice err mt">The sealed store on this device could not be opened. Starting fresh discards the local Nocturne records in this browser.</div>
+    <div class="mt"><button class="btn danger block" data-action="nc:reset">Start fresh (reset Nocturne store)</button></div>` : ''}
+    <div class="notice info mt">Residents here are demo contacts — Nocturne has no server by design. Your data never leaves this browser.</div>
+  </div>`;
+}
+
+function ncChatList() {
+  const convos = ncStateObj.convos.slice().sort((a, b) => (b.lastActive || 0) - (a.lastActive || 0));
+  const rows = convos.map((c) => {
+    const last = c.msgs[c.msgs.length - 1];
+    return `<div class="nc-convo" data-action="nc:open-convo" data-id="${esc(c.id)}">
+      <div class="nc-avar" style="--c:${c.color}">${esc((c.name || c.handle)[0].toUpperCase())}</div>
+      <div class="grow">
+        <div class="nc-convo-head"><b>${esc(c.name)}</b>${c.online ? '<span class="nc-online" title="online"></span>' : ''}<span class="muted small nc-convo-handle">@${esc(c.handle)}</span></div>
+        <div class="muted small nc-preview">${last ? (last.from === 'me' ? 'You: ' : '') + esc(last.text).slice(0, 48) : 'Say something…'}</div>
+      </div>
+      <div class="nc-when">${ncTime(last ? last.ts : c.lastActive)}</div>
+    </div>`;
+  }).join('');
+  return `<div class="nc-card">
+    <div class="nc-newchat-row">
+      <div class="grow"><b style="font-size:13px">Start a chat</b><div class="muted small">Anyone at <span class="mono">${esc(nocturne.DOMAIN)}</span></div></div>
+      <button class="btn sm" data-action="nc:newchat-open">＋ New</button>
+    </div>
+    ${state.nc.newChatOpen ? `<div class="nc-newchat">
+      ${errBox()}
+      <div class="field" style="margin-bottom:8px"><input data-f="nc.newhandle" placeholder="handle" value="${esc(ncF('newhandle'))}" maxlength="24" autocomplete="off" spellcheck="false" style="font-family:var(--mono)"></div>
+      <div class="actions">
+        <button class="btn sm" data-action="nc:newchat-cancel">Cancel</button>
+        <button class="btn sm primary moon" data-action="nc:newchat-go">Open chat</button>
+      </div>
+    </div>` : ''}
+    ${rows}
+  </div>`;
+}
+
+function ncThread() {
+  const c = ncConvo(state.nc.convoId);
+  if (!c) return ncChatList();
+  const msgs = c.msgs.map((m) => `
+    <div class="nc-msg ${m.from}">
+      <div class="nc-bubble">${esc(m.text)}</div>
+      <div class="nc-meta">${ncTime(m.ts)}${m.from === 'me' ? `<span class="nc-ticks ${m.status}">${m.status === 'sent' ? '✓' : '✓✓'}</span>` : ''}</div>
+    </div>`).join('');
+  return `<div class="nc-thread">
+    <div class="nc-thread-head">
+      <button class="btn icon" data-action="nc:back" title="Back to chats">←</button>
+      <div class="nc-avar sm" style="--c:${c.color}">${esc((c.name || c.handle)[0].toUpperCase())}</div>
+      <div class="grow"><b>${esc(c.name)}</b>
+        <div class="muted small">${c.typing ? 'typing…' : (c.online ? 'online' : 'offline')} · @${esc(c.handle)}${c.system ? ' · resident' : ''}</div>
+      </div>
+    </div>
+    <div class="nc-msgs" id="nc-msgs">
+      ${msgs}
+      ${c.typing ? '<div class="nc-msg them"><div class="nc-bubble typing"><span></span><span></span><span></span></div></div>' : ''}
+    </div>
+    <div class="nc-composer">
+      <input data-f="nc.msg" placeholder="Whisper…" value="${esc(ncF('msg'))}" autocomplete="off" maxlength="500">
+      <button class="btn sm primary moon" data-action="nc:msg-send" ${ncF('msg').trim() ? '' : 'disabled'}>Send</button>
+    </div>
+  </div>`;
+}
+
+function ncMailList() {
+  const tab = state.nc.mailTab || 'inbox';
+  const list = ncStateObj.mail[tab] || [];
+  const rows = list.map((m) => `
+    <div class="nc-mailrow ${m.read ? '' : 'unread'}" data-action="nc:mail-open" data-id="${esc(m.id)}">
+      <div class="grow">
+        <div class="nc-mailrow-head">${m.read ? '' : '<span class="nc-unread"></span>'}<b>${esc(m.name || m.from)}</b>${tab === 'sent' ? `<span class="muted small">→ ${esc(m.to)}</span>` : ''}</div>
+        <div class="muted small">${esc(m.subject)}</div>
+      </div>
+      <div class="nc-when">${ncTime(m.ts)}</div>
+    </div>`).join('');
+  return `<div class="nc-card">
+    <div class="nc-mailtabs">
+      <button class="${tab === 'inbox' ? 'active' : ''}" data-action="nc:mailtab" data-tab="inbox">Inbox (${ncStateObj.mail.inbox.length})</button>
+      <button class="${tab === 'sent' ? 'active' : ''}" data-action="nc:mailtab" data-tab="sent">Sent (${ncStateObj.mail.sent.length})</button>
+      <button class="nc-compose-btn" data-action="nc:compose" title="Compose sealed mail">✎</button>
+    </div>
+    ${list.length === 0 ? '<div class="nc-empty">Nothing here yet.</div>' : rows}
+  </div>`;
+}
+
+function ncMailRead() {
+  const tab = state.nc.mailTab || 'inbox';
+  const m = (ncStateObj.mail[tab] || []).find((x) => x.id === state.nc.mailId);
+  if (!m) return ncMailList();
+  return `<div class="nc-mailread">
+    <div class="nc-thread-head">
+      <button class="btn icon" data-action="nc:mailback" title="Back to ${tab}">←</button>
+      <div class="grow"><b>${esc(m.subject)}</b>
+        <div class="muted small">${tab === 'sent' ? 'To' : 'From'}: <span class="mono">${esc(tab === 'sent' ? m.to : m.from)}</span> · ${ncTime(m.ts)}</div>
+      </div>
+    </div>
+    <div class="nc-mailbody">${esc(m.body).replace(/\n/g, '<br>')}</div>
+  </div>`;
+}
+
+function ncCompose() {
+  const to = ncF('mailto').trim();
+  const m = /^(.*)@nocturne\.night$/i.exec(to);
+  const toOk = !!m && nocturne.validHandle(m[1]);
+  return `<div class="nc-mailread">
+    <div class="nc-thread-head">
+      <button class="btn icon" data-action="nc:compose-cancel" title="Cancel">←</button>
+      <div class="grow"><b>Compose</b><div class="muted small">Sealed mail at <span class="mono">${esc(nocturne.DOMAIN)}</span></div></div>
+    </div>
+    ${errBox()}
+    <div class="field"><label>To</label>
+      <input data-f="nc.mailto" placeholder="resident@nocturne.night" value="${esc(ncF('mailto'))}" autocomplete="off" style="font-family:var(--mono)">
+    </div>
+    <div class="field"><label>Subject</label>
+      <input data-f="nc.mailsubject" placeholder="A whisper" value="${esc(ncF('mailsubject'))}">
+    </div>
+    <div class="field"><label>Message</label>
+      <textarea data-f="nc.mailbody" rows="6" placeholder="Write into the dark…">${esc(ncF('mailbody'))}</textarea>
+    </div>
+    <button class="btn primary moon block" data-action="nc:mail-send" ${!toOk || !ncF('mailsubject').trim() || !ncF('mailbody').trim() ? 'disabled' : ''}>Send sealed mail</button>
+    <div class="hint mt">Mail to your own handle also lands in your Inbox.</div>
+  </div>`;
+}
+
+function ncSendForm() {
+  const s = state.nc.send;
+  const a = ncAsset(s.asset);
+  const assets = Object.values(NC_ASSETS).map((x) => `
+    <div class="nc-asset ${s.asset === x.symbol ? 'active' : ''}" data-action="nc:asset" data-asset="${x.symbol}">
+      <span class="nc-asset-dot" style="background:${x.color}"></span>
+      <div class="grow"><b>${x.symbol}</b><div class="muted small">${x.name}</div></div>
+      <span class="nc-asset-pill ${x.sealed ? 'sealed' : 'live'}">${x.sealed ? 'sealed v1' : 'live'}</span>
+    </div>`).join('');
+  return `<div class="nc-card">
+    ${assets}
+    ${errBox()}
+    <div class="field"><label>Recipient ${a.symbol} address</label>
+      <input data-f="nc.sendaddr" placeholder="${a.placeholder}" value="${esc(ncF('sendaddr'))}" spellcheck="false" style="font-family:var(--mono)">
+    </div>
+    <div class="field"><label>Amount</label>
+      <div class="suffix"><input data-f="nc.sendamt" inputmode="decimal" placeholder="0.0" value="${esc(ncF('sendamt'))}"><span class="suffix-unit">${a.symbol}</span></div>
+    </div>
+    <div class="field"><label>Memo <span class="muted">(optional — travels with the record)</span></label>
+      <input data-f="nc.sendmemo" maxlength="140" placeholder="e.g. for the archive" value="${esc(ncF('sendmemo'))}">
+    </div>
+    <div class="notice ${a.sealed ? 'info' : 'ok'}">${a.hint}</div>
+    <button class="btn primary moon block" data-action="nc:review" ${state.busy ? 'disabled' : ''}>
+      ${state.busy ? '<span class="spinner"></span> Building…' : (a.sealed ? 'Seal &amp; review' : 'Build &amp; review')}
+    </button>
+    <div class="mt"><button class="btn ghost block" data-action="nc:send-back">Back</button></div>
+  </div>`;
+}
+
+function ncSendReview() {
+  const s = state.nc.send;
+  const a = ncAsset(s.asset);
+  const rows = [];
+  const kv = (k, v, mono) => rows.push(`<div class="row"><span class="k">${k}</span><span class="v ${mono ? 'mono' : ''}">${esc(v)}</span></div>`);
+  kv('Asset', a.symbol + ' · ' + a.name);
+  kv('Recipient', s.toAddress, true);
+  if (a.sealed) {
+    kv('Amount', formatXno(s.amountMicro));
+    kv('Status', 'Sealed — broadcast arrives with Midnight mainnet support');
+  } else if (a.chain === 'cardano') {
+    kv('Amount', formatAda(s.amountLovelace));
+    kv('Network fee', formatAda(s.built.fee));
+    kv('Total', formatAda(s.amountLovelace + s.built.fee));
+    if (s.built.change > 0n) kv('Change back', formatAda(s.built.change));
+  } else {
+    kv('Amount', formatBtc(s.amountSats));
+    kv('Fee', s.built.feeSats + ' sats (' + s.feeRate + ' sat/vB)');
+    kv('Total', formatBtc(s.amountSats + s.built.feeSats));
+  }
+  if (s.memo) kv('Memo', s.memo);
+  return `<div class="nc-card">
+    <div class="card flush kv"><div style="padding:4px 14px">${rows.join('')}</div></div>
+    <div class="actions mt">
+      <button class="btn sm" data-action="nc:sendqr" data-text="${esc(s.toAddress)}">▦ Recipient QR</button>
+    </div>
+    <button class="btn primary moon block" data-action="nc:confirm" style="margin-top:12px">${a.sealed ? 'Seal this transfer' : 'Sign &amp; broadcast'}</button>
+    <div class="mt"><button class="btn ghost block" data-action="nc:back-edit">← Edit details</button></div>
+  </div>`;
+}
+
+function ncReceipt() {
+  const t = state.nc.send.receipt;
+  if (!t) return ncSendForm();
+  const live = t.status === 'broadcast';
+  return `<div class="nc-receipt ${live ? 'live' : 'sealed'}">
+    <div class="nc-receipt-mark">${live ? '✓' : '☾'}</div>
+    <h3>${live ? 'Transaction broadcast' : 'Sealed for the dark'}</h3>
+    <p class="muted small">${esc(t.asset)} · to <span class="mono">${esc(t.to)}</span> · ${ncTime(t.ts)}</p>
+    <div class="card flush kv mt">
+      <div class="row"><span class="k">Amount</span><span class="v">${esc(t.amountText)}</span></div>
+      ${t.memo ? `<div class="row"><span class="k">Memo</span><span class="v">${esc(t.memo)}</span></div>` : ''}
+      ${t.txid ? `<div class="row"><span class="k">Tx</span><span class="v mono">${esc(t.txid)}</span></div>` : ''}
+      <div class="row"><span class="k">Reference</span><span class="v mono">${esc(t.id)}</span></div>
+    </div>
+    ${live
+      ? `<div class="mt"><a class="btn block" href="${esc(t.explorer)}" target="_blank" rel="noopener">View on explorer ↗</a></div>`
+      : '<div class="notice info mt">NIGHT v1: the transfer is sealed and recorded here. It broadcasts when Midnight mainnet support lands.</div>'}
+    <div class="mt"><button class="btn block" data-action="nc:copy-txid" data-text="${esc(t.txid || t.id)}">Copy reference</button></div>
+    <div class="mt"><button class="btn primary moon block" data-action="nc:to-activity">View activity</button></div>
+  </div>`;
+}
+
+function ncSendView() {
+  const s = state.nc.send;
+  if (s.stage === 'review' && s.built) return ncSendReview();
+  if (s.stage === 'done') return ncReceipt();
+  return ncSendForm();
+}
+
+function ncActivity() {
+  const txs = ncStateObj.txs;
+  if (!txs.length) {
+    return `<div class="nc-card"><div class="nc-empty">No transfers yet.<br>Send NIGHT, ADA or BTC from the Send tab.</div></div>`;
+  }
+  const rows = txs.map((t) => `
+    <div class="nc-tx ${t.status === 'broadcast' ? 'live' : 'sealed'}">
+      <div class="grow">
+        <div class="nc-tx-head"><b>${esc(t.asset)}</b><span class="nc-tx-pill ${t.status === 'broadcast' ? 'live' : 'sealed'}">${t.status === 'broadcast' ? 'Broadcast' : 'Sealed'}</span></div>
+        <div class="muted small">${esc(t.amountText)} · to <span class="mono">${esc(t.to)}</span></div>
+      </div>
+      <div class="nc-tx-side">
+        <div class="nc-when">${ncTime(t.ts)}</div>
+        ${t.explorer ? `<a class="btn sm" href="${esc(t.explorer)}" target="_blank" rel="noopener" title="View on explorer">↗</a>` : ''}
+      </div>
+    </div>`).join('');
+  return `<div class="nc-card">${rows}</div>`;
+}
+
+function viewNocturne() {
+  let body;
+  if (!ncStateObj) body = ncOnboarding();
+  else if (state.nc.tab === 'chats') body = state.nc.convoId ? ncThread() : ncChatList();
+  else if (state.nc.tab === 'mail') body = state.nc.composing ? ncCompose() : (state.nc.mailId ? ncMailRead() : ncMailList());
+  else if (state.nc.tab === 'send') body = ncSendView();
+  else body = ncActivity();
+  return `${topbar()}
+  <div class="view nc-view">
+    ${ncStateObj ? ncHeader() + ncTabs() : ''}
+    ${body}
+  </div>
+  ${bottomNav()}`;
+}
+
 function viewBoot() {
   return `<div class="view"><div class="empty"><span class="spinner"></span><div style="margin-top:12px">Starting Eclipse…</div></div></div>`;
 }
@@ -1048,6 +1519,7 @@ function render() {
     case 'import': html = viewImport(); break;
     case 'unlock': html = viewUnlock(); break;
     case 'wallet': html = viewWallet(); break;
+    case 'nocturne': html = viewNocturne(); break;
     case 'send': html = viewSend(); break;
     case 'signmsg': html = viewSignMsg(); break;
     case 'dapps': html = viewDapps(); break;
@@ -1060,6 +1532,11 @@ function render() {
   const vEl = root.querySelector('.view');
   if (vEl) vEl.classList.toggle('anim', state.view !== lastRenderedView);
   lastRenderedView = state.view;
+  // Keep Nocturne threads scrolled to the newest message.
+  if (state.view === 'nocturne') {
+    const m = root.querySelector('#nc-msgs');
+    if (m) m.scrollTop = m.scrollHeight;
+  }
   // Re-focus the first password field on auth screens.
   if (['unlock', 'createpw', 'import'].includes(state.view)) {
     const pw = root.querySelector('input[type="password"]');
@@ -1143,6 +1620,7 @@ async function actUnlockGo() {
     go('wallet');
     toast('Unlocked');
     loadBalance(state.chain);
+    refreshPrices().then((d) => { if (d) render(); });
   } catch (e) {
     state.formError = e.message || 'Wrong password';
     render();
@@ -1165,10 +1643,12 @@ async function actChain(chain) {
   state.formError = null;
   render();
   loadBalance(chain);
+  refreshPrices().then((d) => { if (d) render(); });
 }
 
 async function actRefresh() {
   loadBalance(state.chain);
+  refreshPrices(true).then((d) => { if (d) render(); });
 }
 
 async function actReceive() {
@@ -1327,13 +1807,13 @@ async function actSettingsNetwork(chain) {
 async function actWipe() {
   openConfirmModal(
     'Wipe Eclipse from this device?',
-    'This deletes the encrypted vault. Anyone with your recovery phrase can still restore the wallet — no one without it. This cannot be undone.',
+    'This deletes the encrypted vault and your Nocturne messenger data. Anyone with your recovery phrase can still restore the wallet — no one without it. This cannot be undone.',
     async () => {
       openPasswordModal('Confirm wipe', 'Enter your password to permanently delete the vault on this device.',
         async (pw) => {
           if (!pw) throw new Error('Password required');
           try { await vaultDecrypt(vaultFromStorage((await store.get([VAULT_KEY]))[VAULT_KEY]), pw); } catch { throw new Error('Wrong password'); }
-          await store.remove([VAULT_KEY, 'eclipse.dapp.pending', 'eclipse.dapp.approvals']);
+          await store.remove([VAULT_KEY, 'eclipse.dapp.pending', 'eclipse.dapp.approvals', nocturne.STORAGE_KEY]);
           lockWallet();
           state.pending = [];
           state.approvals = {};
@@ -1344,6 +1824,343 @@ async function actWipe() {
       );
     }, 'Continue', true
   );
+}
+
+/* --------------------------- Nocturne actions ------------------------- */
+
+async function actNcOpen() {
+  if (!seedBytes) { go('unlock'); return; }
+  if (!state.nc) state.nc = ncDefaultUI();
+  state.view = 'nocturne';
+  if (!ncStateObj) {
+    state.busy = true;
+    state.formError = null;
+    state.ncLoadError = false;
+    render();
+    try {
+      await ncEnsure();
+    } catch (e) {
+      ncStateObj = null;
+      state.ncLoadError = true;
+      state.formError = 'The sealed messenger store could not be opened (wrong seed or tampered data). You can start fresh below.';
+    } finally {
+      state.busy = false;
+    }
+  }
+  render();
+  ncStartTicker();
+}
+
+async function actNcReset() {
+  openPasswordModal(
+    'Reset Nocturne on this device?',
+    'Deletes the sealed messenger store (chats, mail, activity) from this browser. Enter your wallet password to confirm.',
+    async (pw) => {
+      if (!pw) throw new Error('Password required');
+      await vaultDecrypt(vaultFromStorage((await store.get([VAULT_KEY]))[VAULT_KEY]), pw);
+      await store.remove([nocturne.STORAGE_KEY]);
+      ncStateObj = null;
+      ncKey = null;
+      state.nc = ncDefaultUI();
+      state.ncLoadError = false;
+      state.formError = null;
+      toast('Nocturne store reset');
+    }, 'Reset'
+  );
+}
+
+async function actNcClear() {
+  openConfirmModal(
+    'Clear Nocturne from this device?',
+    'Deletes the sealed messenger store: chats, mail, activity. This cannot be undone.',
+    async () => {
+      openPasswordModal(
+        'Confirm clear',
+        'Enter your wallet password to delete the Nocturne store on this device.',
+        async (pw) => {
+          if (!pw) throw new Error('Password required');
+          await vaultDecrypt(vaultFromStorage((await store.get([VAULT_KEY]))[VAULT_KEY]), pw);
+          await store.remove([nocturne.STORAGE_KEY]);
+          ncStateObj = null;
+          ncKey = null;
+          state.nc = ncDefaultUI();
+          state.formError = null;
+          toast('Nocturne cleared from this device');
+        }, 'Clear'
+      );
+    }, 'Continue', true
+  );
+}
+
+async function actNcCreate() {
+  if (!state.nc) state.nc = ncDefaultUI();
+  const handle = ncF('handle').trim();
+  if (!nocturne.validHandle(handle)) {
+    state.formError = 'Handle: 3–24 lowercase letters, numbers or underscores';
+    render(); return;
+  }
+  state.busy = true; state.formError = null; render();
+  try {
+    const seed = requireUnlocked();
+    if (!ncKey) ncKey = await nocturne.deriveDeviceKey(seed);
+    ncStateObj = nocturne.newState(handle.toLowerCase());
+    state.nc = { ...ncDefaultUI(), tab: state.nc.tab };
+    state.f['nc.handle'] = '';
+    await ncSave();
+    toast('Welcome to the dark, @' + handle.toLowerCase());
+  } catch (e) {
+    state.formError = e.message || String(e);
+  } finally {
+    state.busy = false;
+    render();
+    ncStartTicker();
+  }
+}
+
+async function actNcSub(dataset) {
+  if (!state.nc) return;
+  state.nc.tab = dataset.tab;
+  state.nc.convoId = null;
+  state.nc.mailId = null;
+  state.nc.composing = false;
+  state.nc.newChatOpen = false;
+  if (state.nc.send) {
+    state.nc.send.stage = 'form';
+    state.nc.send.built = null;
+    state.nc.send.receipt = null;
+  }
+  state.formError = null;
+  render();
+}
+
+async function actNcOpenConvo(dataset) {
+  if (!ncConvo(dataset.id)) return;
+  state.nc.convoId = dataset.id;
+  state.formError = null;
+  render();
+}
+
+async function actNcBack() {
+  state.nc.convoId = null;
+  state.f['nc.msg'] = '';
+  render();
+}
+
+async function actNcNewChatOpen() {
+  state.nc.newChatOpen = true;
+  state.formError = null;
+  render();
+}
+
+async function actNcNewChatCancel() {
+  state.nc.newChatOpen = false;
+  state.f['nc.newhandle'] = '';
+  state.formError = null;
+  render();
+}
+
+async function actNcNewChatGo() {
+  const h = ncF('newhandle').trim().replace(/^@/, '');
+  state.formError = null;
+  try {
+    const c = nocturne.addConvo(ncStateObj, h);
+    state.nc.convoId = c.id;
+    state.nc.newChatOpen = false;
+    state.f['nc.newhandle'] = '';
+    await ncSave();
+  } catch (e) {
+    state.formError = e.message || String(e);
+  }
+  render();
+}
+
+async function actNcMsgSend() {
+  const text = ncF('msg').trim();
+  const c = state.nc && ncConvo(state.nc.convoId);
+  if (!text || !c) return;
+  const now = Date.now();
+  c.msgs.push({ id: nocturne.uid(), from: 'me', text, ts: now, status: 'sent' });
+  c.lastActive = now;
+  nocturne.scheduleReply(c, now);
+  state.f['nc.msg'] = '';
+  await ncSave();
+  ncSettleTick();
+  if (state.view === 'nocturne') render();
+}
+
+async function actNcMailtab(dataset) {
+  state.nc.mailTab = dataset.tab;
+  state.nc.mailId = null;
+  render();
+}
+
+async function actNcMailOpen(dataset) {
+  const tab = state.nc.mailTab === 'sent' ? 'sent' : 'inbox';
+  const m = (ncStateObj.mail[tab] || []).find((x) => x.id === dataset.id);
+  if (!m) return;
+  if (tab === 'inbox' && !m.read) {
+    m.read = true;
+    await ncSave();
+  }
+  state.nc.mailId = dataset.id;
+  render();
+}
+
+async function actNcMailBack() {
+  state.nc.mailId = null;
+  render();
+}
+
+async function actNcCompose() {
+  state.nc.composing = true;
+  state.nc.mailId = null;
+  state.formError = null;
+  render();
+}
+
+async function actNcComposeCancel() {
+  state.nc.composing = false;
+  ['nc.mailto', 'nc.mailsubject', 'nc.mailbody'].forEach((k) => { state.f[k] = ''; });
+  state.formError = null;
+  render();
+}
+
+async function actNcMailSend() {
+  const to = ncF('mailto').trim();
+  const subject = ncF('mailsubject').trim();
+  const body = ncF('mailbody').trim();
+  const m = /^(.*)@nocturne\.night$/i.exec(to);
+  if (!m || !nocturne.validHandle(m[1])) {
+    state.formError = 'Address must be handle@nocturne.night';
+    render(); return;
+  }
+  if (!subject || !body) {
+    state.formError = 'Subject and message are required';
+    render(); return;
+  }
+  state.formError = null;
+  const now = Date.now();
+  const entry = { id: nocturne.uid('m'), to, name: m[1].toLowerCase(), subject, body, ts: now, read: true };
+  ncStateObj.mail.sent.unshift(entry);
+  if (m[1].toLowerCase() === ncStateObj.profile.handle) {
+    ncStateObj.mail.inbox.unshift({ ...entry, read: false });
+  }
+  state.nc.composing = false;
+  state.nc.mailTab = 'sent';
+  state.nc.mailId = null;
+  ['nc.mailto', 'nc.mailsubject', 'nc.mailbody'].forEach((k) => { state.f[k] = ''; });
+  await ncSave();
+  toast('Sealed mail sent');
+  render();
+}
+
+async function actNcAsset(dataset) {
+  if (!state.nc || !NC_ASSETS[dataset.asset]) return;
+  state.nc.send.asset = dataset.asset;
+  state.nc.send.stage = 'form';
+  state.nc.send.built = null;
+  state.formError = null;
+  render();
+}
+
+async function actNcSendBack() {
+  state.nc.send = { ...state.nc.send, stage: 'form', built: null, receipt: null };
+  state.formError = null;
+  render();
+}
+
+async function actNcReview() {
+  const s = state.nc.send;
+  const a = ncAsset(s.asset);
+  const addr = ncF('sendaddr').trim();
+  const amt = ncF('sendamt').trim();
+  state.formError = null;
+  if (!addr) { state.formError = 'Enter a recipient address'; render(); return; }
+  if (!amt) { state.formError = 'Enter an amount'; render(); return; }
+  state.busy = true; render();
+  try {
+    await paint();
+    if (a.sealed) {
+      if (!MIDNIGHT.validateAddress(addr)) throw new Error('Not a valid Midnight address (mn_addr… or mn_addr_…)');
+      const amountMicro = parseAda(amt); // Midnight uses 6 decimals
+      Object.assign(s, { toAddress: addr, amountMicro, amountText: formatXno(amountMicro), built: { sealed: true }, stage: 'review' });
+    } else if (a.chain === 'cardano') {
+      const out = await reviewCardanoSend(addr, amt);
+      Object.assign(s, out, { amountText: formatAda(out.amountLovelace), stage: 'review' });
+    } else {
+      const out = await reviewBitcoinSend(addr, amt, 'halfHour');
+      Object.assign(s, out, { amountText: formatBtc(out.amountSats), stage: 'review' });
+    }
+    s.memo = ncF('sendmemo').trim();
+  } catch (e) {
+    state.formError = e.message || String(e);
+  } finally {
+    state.busy = false;
+    render();
+  }
+}
+
+async function actNcBackEdit() {
+  state.nc.send.stage = 'form';
+  state.nc.send.built = null;
+  state.formError = null;
+  render();
+}
+
+async function actNcSendQr(dataset) {
+  openQrModal(dataset.text);
+}
+
+async function actNcConfirm() {
+  const s = state.nc.send;
+  if (s.stage !== 'review') return;
+  const a = ncAsset(s.asset);
+  const title = a.sealed ? 'Seal NIGHT transfer' : `Sign ${a.name} transaction`;
+  const body = a.sealed
+    ? `Seal ${s.amountText} to ${s.toAddress}. Enter your password to seal this record.`
+    : `Send ${s.amountText}. Enter your password to sign and broadcast.`;
+  openPasswordModal(title, body, async (pw) => {
+    if (!pw) throw new Error('Password required');
+    state.busy = true;
+    try {
+      await paint();
+      const now = Date.now();
+      let t;
+      if (a.sealed) {
+        t = { id: nocturne.uid('tx'), asset: 'NIGHT', to: s.toAddress, amountText: s.amountText, memo: s.memo, ts: now, status: 'sealed', txid: null, explorer: null };
+      } else if (a.chain === 'cardano') {
+        const txid = await cardanoSignAndBroadcast(s.built);
+        t = { id: nocturne.uid('tx'), asset: 'ADA', to: s.toAddress, amountText: s.amountText, memo: s.memo, ts: now, status: 'broadcast', txid, explorer: explorerTxLink('cardano', txid) };
+      } else {
+        const txid = await bitcoinSignAndBroadcast(s.built);
+        t = { id: nocturne.uid('tx'), asset: 'BTC', to: s.toAddress, amountText: s.amountText, memo: s.memo, ts: now, status: 'broadcast', txid, explorer: explorerTxLink('bitcoin', txid) };
+      }
+      ncStateObj.txs.unshift(t);
+      s.receipt = t;
+      s.stage = 'done';
+      ['nc.sendaddr', 'nc.sendamt', 'nc.sendmemo'].forEach((k) => { state.f[k] = ''; });
+      await ncSave();
+      if (!a.sealed) loadBalance(a.chain);
+      toast(a.sealed ? 'Sealed for the dark' : 'Broadcast OK');
+    } finally {
+      state.busy = false;
+      render();
+    }
+  }, a.sealed ? 'Seal' : 'Sign & broadcast');
+}
+
+async function actNcToActivity() {
+  state.nc.tab = 'activity';
+  state.nc.send = { ...ncDefaultUI().send };
+  render();
+}
+
+async function actNcCopyMailbox() {
+  if (ncStateObj) await copyText(ncStateObj.profile.mailbox);
+}
+
+async function actNcCopyTxid(dataset) {
+  await copyText(dataset.text || '');
 }
 
 /* --------------------------- event wiring ---------------------------- */
@@ -1375,7 +2192,7 @@ function onAppClick(e) {
   const dataset = el.dataset;
   Promise.resolve(dispatch(action, dataset, el)).catch((err) => {
     state.formError = err.message || String(err);
-    if (['createpw', 'import', 'unlock', 'send', 'signmsg'].includes(state.view)) render();
+    if (['createpw', 'import', 'unlock', 'send', 'signmsg', 'nocturne'].includes(state.view)) render();
     toast(err.message || String(err), 'err');
   });
 }
@@ -1443,6 +2260,31 @@ async function dispatch(action, dataset, el) {
     case 'dapp:clear': return actDappClear(dataset);
     case 'settings:lock': return actLock();
     case 'settings:wipe': return actWipe();
+    case 'nav:nocturne': return actNcOpen();
+    case 'nc:reset': return actNcReset();
+    case 'nc:clear': return actNcClear();
+    case 'nc:create': return actNcCreate();
+    case 'nc:sub': return actNcSub(dataset);
+    case 'nc:open-convo': return actNcOpenConvo(dataset);
+    case 'nc:back': return actNcBack();
+    case 'nc:newchat-open': return actNcNewChatOpen();
+    case 'nc:newchat-cancel': return actNcNewChatCancel();
+    case 'nc:newchat-go': return actNcNewChatGo();
+    case 'nc:msg-send': return actNcMsgSend();
+    case 'nc:mailtab': return actNcMailtab(dataset);
+    case 'nc:mail-open': return actNcMailOpen(dataset);
+    case 'nc:mailback': return actNcMailBack();
+    case 'nc:compose': return actNcCompose();
+    case 'nc:compose-cancel': return actNcComposeCancel();
+    case 'nc:mail-send': return actNcMailSend();
+    case 'nc:asset': return actNcAsset(dataset);
+    case 'nc:review': return actNcReview();
+    case 'nc:back-edit': return actNcBackEdit();
+    case 'nc:sendqr': return actNcSendQr(dataset);
+    case 'nc:confirm': return actNcConfirm();
+    case 'nc:to-activity': return actNcToActivity();
+    case 'nc:copy-mailbox': return actNcCopyMailbox();
+    case 'nc:copy-txid': return actNcCopyTxid(dataset);
     default:
       throw new Error('Unknown action: ' + action);
   }
@@ -1558,5 +2400,25 @@ export const api = {
   parseAda,
   parseBtc,
   maxAmountFor,
+  refreshPrices,
+  priceState: () => prices,
+  balanceHero,
+  fmtUsd,
   setNetworks(n) { state.networks = { ...state.networks, ...n }; },
+
+  /* Nocturne (sealed private messenger) */
+  nocturne,
+  ncEnsure,
+  ncSave,
+  ncSettleTick,
+  ncState: () => ncStateObj,
+  actNcOpen,
+  actNcCreate,
+  actNcSub,
+  actNcOpenConvo,
+  actNcNewChatGo,
+  actNcMsgSend,
+  actNcMailSend,
+  actNcReview,
+  actNcConfirm,
 };

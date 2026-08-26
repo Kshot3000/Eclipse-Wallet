@@ -55,7 +55,7 @@
     <section class="hero">
       <div class="badge"><span class="dot"></span>v0.1 · Chrome &amp; Brave · self-custody</div>
       <h1>Three chains.<br>One wallet.</h1>
-      <p class="tag"><b>Cardano.</b> <b>Midnight.</b> <b>Bitcoin.</b> — send, receive, sign and explore from one smooth, encrypted browser wallet that feels as effortless as Phantom.</p>
+      <p class="tag"><b class="c-cardano">Cardano.</b> <b class="c-mid">Midnight.</b> <b class="c-btc">Bitcoin.</b> — send, receive, sign and explore from one smooth, encrypted browser wallet that feels as effortless as Phantom.</p>
       <div class="cta">
         <a class="btn primary" href="https://github.com/Kshot3000/eclipse-wallet" target="_blank" rel="noopener">Get Eclipse on GitHub</a>
         <a class="btn" href="#install">Install in 3 steps</a>
@@ -70,9 +70,9 @@
     <!-- ============================ LIVE STRIP =========================== -->
     <div class="live-wrap reveal">
       <div class="live-strip" aria-label="Live network data">
-        <span class="live-pill" style="--c:#3d6fe0"><span class="dot"></span>ADA <span class="val" id="live-ada">…</span><span class="sep">·</span>Conway era</span>
-        <span class="live-pill" style="--c:#f7931a"><span class="dot"></span>BTC <span class="val" id="live-btc-price">…</span><span class="sep">·</span><span class="val" id="live-btc-height">…</span></span>
-        <span class="live-pill" style="--c:#c9d4ea"><span class="dot"></span>NIGHT <span class="sep">·</span>privacy chain</span>
+        <span class="live-pill" style="--c:#3d6fe0"><span class="dot"></span>ADA <span class="val" id="live-ada">…</span><span class="chg" id="live-ada-chg"></span><span class="sep">·</span>Conway era</span>
+        <span class="live-pill" style="--c:#f7931a"><span class="dot"></span>BTC <span class="val" id="live-btc-price">…</span><span class="chg" id="live-btc-chg"></span><span class="sep">·</span><span class="val" id="live-btc-height">…</span></span>
+        <span class="live-pill" style="--c:#c9d4ea"><span class="dot"></span>NIGHT <span class="val" id="live-night">…</span><span class="chg" id="live-night-chg"></span><span class="sep">·</span>privacy chain</span>
         <span class="live-stamp" id="live-stamp">waiting for network…</span>
       </div>
     </div>
@@ -99,6 +99,7 @@
                 <span class="wm-chip silver">NIGHT</span>
                 <span class="wm-chip orange">BTC</span>
               </div>
+              <div class="wm-total"><span>Portfolio</span><b id="wm-total">…</b></div>
             </div>
             <div class="wm-rows">
               <div class="wm-row"><span class="wd ada"></span>Cardano <b>1,234.56 ADA</b></div>
@@ -129,7 +130,8 @@
         </div>
         <div class="chains">
           <article class="chain-card blue">
-            <div class="top"><span class="sym">₳</span><h3>Cardano</h3></div>
+            <span class="watermark" aria-hidden="true">₳</span>
+            <div class="top"><span class="sym">₳</span><h3>Cardano</h3><span class="chain-price" id="price-ada">…</span></div>
             <div class="role">ADA · Ouroboros proof-of-stake</div>
             <ul>
               <li>Base, stake &amp; enterprise addresses</li>
@@ -145,7 +147,8 @@
             <div class="nets">Mainnet · Preview · Preprod</div>
           </article>
           <article class="chain-card black">
-            <div class="top"><span class="sym" style="display:inline-flex;align-items:center;justify-content:center"><svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2.8"/><rect x="10.65" y="6.65" width="2.7" height="2.7" fill="currentColor"/><rect x="10.65" y="10.65" width="2.7" height="2.7" fill="currentColor"/><rect x="10.65" y="14.65" width="2.7" height="2.7" fill="currentColor"/></svg></span><h3>Midnight</h3></div>
+            <span class="watermark" aria-hidden="true"><svg viewBox="0 0 24 24" width="96" height="96"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2.8"/><rect x="10.65" y="6.65" width="2.7" height="2.7" fill="currentColor"/><rect x="10.65" y="10.65" width="2.7" height="2.7" fill="currentColor"/><rect x="10.65" y="14.65" width="2.7" height="2.7" fill="currentColor"/></svg></span>
+            <div class="top"><span class="sym" style="display:inline-flex;align-items:center;justify-content:center"><svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2.8"/><rect x="10.65" y="6.65" width="2.7" height="2.7" fill="currentColor"/><rect x="10.65" y="10.65" width="2.7" height="2.7" fill="currentColor"/><rect x="10.65" y="14.65" width="2.7" height="2.7" fill="currentColor"/></svg></span><h3>Midnight</h3><span class="chain-price" id="price-night">…</span></div>
             <div class="role">NIGHT · programmable privacy (ZK)</div>
             <ul>
               <li>Unshielded NIGHT — bech32m addresses</li>
@@ -160,7 +163,8 @@
             <div class="nets">Mainnet · Testnet · Devnet — v1: address + signing</div>
           </article>
           <article class="chain-card orange">
-            <div class="top"><span class="sym">₿</span><h3>Bitcoin</h3></div>
+            <span class="watermark" aria-hidden="true">₿</span>
+            <div class="top"><span class="sym">₿</span><h3>Bitcoin</h3><span class="chain-price" id="price-btc">…</span></div>
             <div class="role">BTC · open-source P2P money</div>
             <ul>
               <li>Native segwit P2WPKH (bc1, BIP173)</li>
@@ -211,7 +215,7 @@
           <div class="sec-item">
             <div class="ico">🎯</div>
             <h3>Minimal permissions</h3>
-            <p>Only storage + notifications, with network access restricted to the three public APIs the wallet actually uses.</p>
+            <p>Only storage + notifications, with network access restricted to the public APIs the wallet actually uses — plus CoinGecko for display-only USD prices.</p>
           </div>
           <div class="sec-item">
             <div class="ico">🗝️</div>
@@ -427,7 +431,7 @@
           </details>
           <details>
             <summary>Does Eclipse collect my data?<span class="pm">+</span></summary>
-            <div class="a">No. The wallet talks only to the public chain APIs it needs (Koios, Blockstream, mempool.space). This site has <b>no analytics, no tracking, no third-party scripts</b> — every dependency is vendored in the repo.</div>
+            <div class="a">No. The wallet talks only to the public chain APIs it needs (Koios, Blockstream, mempool.space), plus CoinGecko for display-only USD prices. This site has <b>no analytics, no tracking, no third-party scripts</b> — every dependency is vendored in the repo.</div>
           </details>
           <details>
             <summary>I forgot my password. Can it be recovered?<span class="pm">+</span></summary>

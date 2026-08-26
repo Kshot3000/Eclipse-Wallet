@@ -35,6 +35,9 @@ import { ripemd160 } from '../extension/vendor/hashes/ripemd160.js';
 import * as ed25519 from '../extension/vendor/ed25519.js';
 import * as secp from '../extension/vendor/secp256k1.js';
 import { vaultEncrypt, vaultDecrypt, vaultToStorage, vaultFromStorage } from '../extension/lib/vault.js';
+import {
+  deriveDeviceKey, sealState, openState, newState, validHandle, pickReply, scheduleReply, settle, addConvo, uid, DOMAIN,
+} from '../extension/lib/nocturne.js';
 
 let passed = 0;
 let failed = 0;
@@ -603,6 +606,92 @@ section('Vault (scrypt + AES-256-GCM)');
   const back = vaultFromStorage(stored);
   const out2 = await vaultDecrypt(back, 'correct horse battery staple');
   check('vault storage round-trip', bytesToHex(out2) === bytesToHex(plaintext));
+}
+
+/* --------------------------- Nocturne ------------------------------ */
+
+section('Nocturne (sealed messenger core)');
+{
+  const seedA = new Uint8Array(64).fill(9);
+  const seedB = new Uint8Array(64).fill(10);
+  const kA = await deriveDeviceKey(seedA);
+  const kA2 = await deriveDeviceKey(seedA);
+  const kB = await deriveDeviceKey(seedB);
+  // Keys are non-extractable (by design), so compare them behaviorally:
+  // AES-GCM with a fixed IV is deterministic, so identical keys produce identical ciphertext.
+  const encFingerprint = async (k) => {
+    const iv = new Uint8Array(12).fill(7);
+    const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, k, new TextEncoder().encode('eclipse-nocturne-key-check'));
+    return bytesToHex(new Uint8Array(ct));
+  };
+  check('device key deterministic per seed', (await encFingerprint(kA)) === (await encFingerprint(kA2)));
+  check('device key differs across seeds', (await encFingerprint(kA)) !== (await encFingerprint(kB)));
+
+  check('validHandle accepts kshot', validHandle('kshot'));
+  check('validHandle accepts a_b_123', validHandle('a_b_123'));
+  check('validHandle normalizes uppercase', validHandle('KShot'));
+  check('validHandle rejects short/space/symbols', !validHandle('ab') && !validHandle('a b') && !validHandle('a.b-c'));
+
+  const st = newState('kshot');
+  check('new state: profile + mailbox', st.profile.handle === 'kshot' && st.profile.mailbox === 'kshot@' + DOMAIN);
+  check('new state: 4 seeded resident convos', st.convos.length === 4 && st.convos.every((c) => c.msgs.length > 0));
+  check('new state: 3 welcome mails, unread', st.mail.inbox.length === 3 && st.mail.inbox.every((m) => !m.read));
+  let threw = false;
+  try { newState('x'); } catch { threw = true; }
+  check('newState rejects invalid handle', threw);
+
+  const sealed = await sealState(kA, st);
+  check('sealed blob shape (aes-256-gcm + iv + ct)', sealed.mode === 'aes-256-gcm' && sealed.iv.length > 8 && sealed.ct.length > 16);
+
+  const back = await openState(sealed, kA2);
+  check('seal/open round-trip preserves state',
+    back.profile.handle === 'kshot' &&
+    back.convos.length === 4 &&
+    back.mail.inbox.length === 3 &&
+    back.convos[0].msgs[0].text.includes('kshot'));
+
+  threw = false;
+  try { await openState(sealed, kB); } catch { threw = true; }
+  check('different seed cannot open the seal', threw);
+
+  threw = false;
+  try { await openState({ ...sealed, ct: sealed.ct.slice(4) }, kA); } catch { threw = true; }
+  check('tampered ciphertext is rejected', threw);
+
+  const convo = st.convos.find((c) => c.id === 'nocturne');
+  const r1 = pickReply(convo);
+  const r2 = pickReply(convo);
+  check('reply rotation advances', typeof r1 === 'string' && r1.length > 0 && r1 !== r2);
+
+  const user = addConvo(st, 'friend_x');
+  check('addConvo creates user convo with generic replies', user.userMade && user.replies.length === 3);
+  pickReply(user);
+  check('user convo goes silent after first reply', user.silent === true);
+  let dup = false;
+  try { const again = addConvo(st, 'FRIEND_X'); dup = again.id === user.id; } catch { dup = false; }
+  check('addConvo is idempotent per handle (case-insensitive)', dup);
+
+  // scheduleReply + settle: deterministic delivery, safe across popup close.
+  const mw = st.convos.find((c) => c.id === 'moon_whisper');
+  const t0 = Date.now() - 10000;
+  mw.msgs.push({ id: uid(), from: 'me', text: 'hello', ts: t0, status: 'sent' });
+  check('scheduleReply arms an incoming reply', scheduleReply(mw, t0, 2000) === true && !!mw.incoming && mw.incoming.at === t0 + 2000);
+  settle(st, t0 + 1900);
+  check('reply not delivered before due time', !mw.msgs.some((x) => x.from === 'them' && x.ts > t0));
+  check('typing indicator shows at due window', mw.typing === true);
+  check('own message ticked delivered', mw.msgs.find((x) => x.text === 'hello').status === 'delivered');
+  settle(st, t0 + 3000);
+  const mwReply = mw.msgs.filter((x) => x.from === 'them' && x.ts > t0).pop();
+  check('reply delivered after due time', !!mwReply && mwReply.status === 'read' && mw.incoming === null && mw.typing === false);
+  check('own message ticked read after reply', mw.msgs.find((x) => x.text === 'hello').status === 'read');
+
+  const fx = st.convos.find((c) => c.handle === 'friend_x');
+  const t1 = Date.now();
+  fx.msgs.push({ id: uid(), from: 'me', text: 'ping', ts: t1, status: 'sent' });
+  settle(st, t1 + 700);
+  check('unanswered message ticks to delivered', fx.msgs.find((x) => x.text === 'ping').status === 'delivered');
+
+  check('uid() is unique', uid() !== uid());
 }
 
 /* --------------------------- Summary ------------------------------- */

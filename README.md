@@ -4,6 +4,8 @@
 
 > **Website:** <https://kshot3000.github.io/Eclipse-Wallet/> · **Developer docs:** <https://kshot3000.github.io/Eclipse-Wallet/docs.html> — source in [`website/`](website/), deployed to GitHub Pages via [`.github/workflows/pages.yml`](.github/workflows/pages.yml).
 >
+> The site's live strip shows real-time **ADA · NIGHT · BTC** prices with 24 h change, and the wallet shows USD values next to balances (CoinGecko public API — display only, never used for signing or broadcasting).
+>
 > **Built by** [@kshot9000](https://x.com/kshot9000) · [github.com/Kshot3000](https://github.com/Kshot3000) — creator of NightDream.io, EUTXO.DEX, Cardano SPO Tracker, Nocturne Messenger and The Cold Front.
 
 - Your keys, your coins — the seed is generated on your machine, encrypted with a password, and never leaves the device.
@@ -52,7 +54,7 @@ First run walks you through **Create a wallet** (or import an existing BIP39 rec
 - **Seed is memory-only** — after unlock the seed lives only in the popup page's JS memory; it is not written to storage, IndexedDB, or any other surface. Locking discards it.
 - **The service worker never touches keys** — the background worker only brokers the dApp request queue and notifications. All derivation/signing happens in the popup.
 - **Per-request dApp approval** — every `getAddress` / `signMessage` request must be approved individually (unless you remember the origin), and signing always requires the wallet to be unlocked.
-- **Minimal permissions** — `storage` + `notifications`, with host permissions restricted to the three public APIs used (Koios for Cardano, Blockstream + mempool.space for Bitcoin). There is no broad network access permission.
+- **Minimal permissions** — `storage` + `notifications`, with host permissions restricted to the public APIs used (Koios for Cardano, Blockstream + mempool.space for Bitcoin, and CoinGecko for display-only USD prices). There is no broad network access permission.
 - **Recovery** — the 24-word phrase is your only backup. It is displayed once at creation, never persisted, and cannot be re-shown.
 
 ## dApp integration
@@ -97,6 +99,7 @@ Behaviour: requests queue in the wallet (badge + notification if the popup is cl
 |---|---|---|
 | Cardano | [Koios](https://docs.koios.rest) (`api.koios.rest`, Preview/Preprod subdomains) | balances/UTXOs, fee parameters, chain tip (TTL), transaction submission |
 | Bitcoin | [Blockstream](https://blockstream.info) + [mempool.space](https://mempool.space) | balances/UTXOs, fee estimates, transaction broadcast |
+| Prices (display only) | [CoinGecko](https://www.coingecko.com) (`api.coingecko.com`) | USD values for ADA / NIGHT / BTC shown in the wallet and on the site — never used for signing or broadcasting |
 
 All calls are made directly by the popup; the network can be changed per chain in **Settings** (the wallet validates that recipient addresses match the selected network before letting you sign).
 
@@ -113,8 +116,8 @@ extension/
   vendor/                  vendored deps: noble curves, BLAKE2b/SHA, scrypt, qrcode
   icons/                   icon16 / icon48 / icon128
 tests/
-  run_tests.mjs            113 checks vs. official spec vectors
-  smoke_extension.mjs      63 offline integration checks of the real popup code paths
+  run_tests.mjs            139 checks vs. official spec vectors
+  smoke_extension.mjs      99 offline integration checks of the real popup code paths
   vectors/                 spec test vectors (BIP39, RFC 8032, BIP143, BIP340, CBOR, …)
 website/                   GitHub Pages site (vanilla HTML/CSS/JS, no build step):
   index.html · docs.html (developer docs) · 404.html · css/site.css
@@ -129,8 +132,8 @@ website/                   GitHub Pages site (vanilla HTML/CSS/JS, no build step
 Both suites run fully **offline** on **Node 22+** (Node's built-in WebCrypto is used for the vault):
 
 ```bash
-node tests/run_tests.mjs       # unit: 113 checks against official vectors
-node tests/smoke_extension.mjs # integration: 63 checks (fake chrome + stubbed network)
+node tests/run_tests.mjs       # unit: 139 checks against official vectors
+node tests/smoke_extension.mjs # integration: 99 checks (fake chrome + stubbed network)
 ```
 
 Coverage highlights: BIP39 (official vectors, English wordlist), SLIP-0010 ed25519/secp256k1 chains, RFC 8032 Ed25519 sign/verify, BIP143 sighash + byte-exact signed transactions, BIP340 (27 official vectors), BIP84/BIP-173 addresses, Midnight SDK vectors, CBOR (RFC 8949 Appendix A), BLAKE2b KATs, plus the full build→sign→broadcast pipelines for ADA and BTC and the dApp approval queue — with every signature independently verified against the spec.

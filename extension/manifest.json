@@ -34,6 +34,7 @@
   "host_permissions": [
     "https://api.koios.rest/*",
     "https://blockstream.info/*",
-    "https://mempool.space/*"
+    "https://mempool.space/*",
+    "https://api.coingecko.com/*"
   ]
 }

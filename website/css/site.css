@@ -129,6 +129,9 @@ a:hover { text-decoration: underline; }
   color: var(--muted); max-width: 640px; margin: 0 auto;
 }
 .hero .tag b { color: var(--text); font-weight: 650; }
+.hero .tag .c-cardano { color: var(--blue-2); }
+.hero .tag .c-mid { color: #c9d4ea; }
+.hero .tag .c-btc { color: var(--orange-2); }
 .hero .cta { display: flex; gap: 12px; justify-content: center; margin-top: 30px; flex-wrap: wrap; }
 .hero .chips { display: flex; gap: 10px; justify-content: center; margin-top: 26px; flex-wrap: wrap; }
 .chip {
@@ -195,6 +198,29 @@ section { padding: 64px 0; }
 .chain-card.blue { --c: var(--blue); }
 .chain-card.black { --c: #c9d4ea; }
 .chain-card.orange { --c: var(--orange); }
+
+/* Per-chain identity: live price badge + ghost watermark glyph */
+.chain-card .chain-price {
+  margin-left: auto;
+  font-size: 12px; font-weight: 800; font-variant-numeric: tabular-nums;
+  color: var(--c);
+  border: 1px solid color-mix(in srgb, var(--c) 40%, transparent);
+  background: color-mix(in srgb, var(--c) 10%, transparent);
+  padding: 3px 10px; border-radius: 999px; white-space: nowrap;
+}
+.chain-card .watermark {
+  position: absolute; right: 8px; bottom: -18px;
+  font-size: 96px; line-height: 1; font-weight: 800;
+  color: var(--c); opacity: 0.08;
+  pointer-events: none; user-select: none;
+}
+.chain-card .watermark svg { display: block; }
+/* The "Chains" kicker runs the tri-colour: blue → silver → orange */
+#chains .sec-head .kicker {
+  background: linear-gradient(90deg, var(--blue-2) 0%, #c9d4ea 50%, var(--orange-2) 100%);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; color: var(--blue-2);
+}
 
 /* ------------------------------ security --------------------------- */
 .sec-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
@@ -337,6 +363,12 @@ footer {
   background: rgba(5, 6, 10, 0.8);
   backdrop-filter: blur(8px);
 }
+/* Tri-colour hairline: Cardano → Midnight → Bitcoin */
+footer::before {
+  content: ""; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, transparent 4%, var(--blue) 30%, #c9d4ea 50%, var(--orange) 70%, transparent 96%);
+  opacity: 0.85;
+}
 footer .inner {
   max-width: var(--maxw); margin: 0 auto; padding: 0 22px;
   display: flex; flex-direction: column; gap: 8px; align-items: center; text-align: center;
@@ -366,6 +398,9 @@ footer .flinks a:hover { color: var(--text); }
 }
 .live-pill .val { color: var(--text); font-weight: 700; font-variant-numeric: tabular-nums; }
 .live-pill .sep { color: var(--faint); }
+.live-pill .chg { font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.live-pill .chg.up { color: var(--ok); }
+.live-pill .chg.down { color: var(--err); }
 .live-stamp { font-size: 11.5px; color: var(--faint); align-self: center; }
 @keyframes livepulse {
   0%, 100% { opacity: 1; transform: scale(1); }
@@ -407,6 +442,15 @@ footer .flinks a:hover { color: var(--text); }
   color: var(--c);
 }
 .wm-chip.blue { --c: var(--blue-2); } .wm-chip.silver { --c: #c9d4ea; } .wm-chip.orange { --c: var(--orange); }
+.wm-total {
+  display: flex; align-items: baseline; justify-content: center; gap: 8px;
+  margin-top: 10px; font-size: 11px; color: var(--muted); font-weight: 700;
+  letter-spacing: 0.4px; text-transform: uppercase;
+}
+.wm-total b {
+  font-size: 15px; font-weight: 800; color: var(--text);
+  font-variant-numeric: tabular-nums; letter-spacing: 0; text-transform: none;
+}
 .wm-rows { padding: 10px 8px; display: flex; flex-direction: column; }
 .wm-row {
   display: flex; align-items: center; gap: 9px;

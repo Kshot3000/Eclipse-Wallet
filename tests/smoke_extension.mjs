@@ -9,6 +9,7 @@
  *   - Bitcoin: build -> sign -> (stubbed) broadcast, BIP143 signature check
  *   - Midnight: BIP340 sign + verify
  *   - dApp request queue: push -> list -> compute result -> decide -> pop
+ *   - Nocturne: identity, sealed store, chat + replies, mail, NIGHT/ADA sends
  *
  * Run:  node tests/smoke_extension.mjs     (from the repo root)
  * No network access is required.
@@ -392,6 +393,145 @@ section('Amount parsing');
   threw = false;
   try { api.parseBtc('1.123456789'); } catch { threw = true; }
   check('parseBtc rejects 9 decimals', threw);
+}
+
+/* ------------------------------ Nocturne ------------------------------ */
+
+section('Nocturne (sealed private messenger)');
+{
+  // Wallet is unlocked here (re-unlock to be safe).
+  await api.unlockVault(PASSWORD);
+
+  // 1 — identity creation (handle normalization + mailbox)
+  api.state.f['nc.handle'] = 'KSHOT';
+  await api.actNcCreate();
+  const nc = api.ncState();
+  check('identity created with normalized handle', !!nc && nc.profile.handle === 'kshot');
+  check('mailbox is handle@nocturne.night', nc.profile.mailbox === 'kshot@nocturne.night');
+  check('4 seeded residents present', nc.convos.length === 4);
+  check('welcome mail seeded (3, unread)', nc.mail.inbox.length === 3 && nc.mail.inbox.every((m) => !m.read));
+
+  // 2 — sealed blob in storage, no plaintext
+  const blob = backing['eclipse.nocturne.v1'];
+  check('sealed blob stored (aes-256-gcm)', !!blob && blob.mode === 'aes-256-gcm' && typeof blob.iv === 'string' && typeof blob.ct === 'string');
+  check('no plaintext handle inside the sealed store', !JSON.stringify(blob).includes('kshot@nocturne'));
+
+  // 3 — survives lock/unlock (key re-derived from the seed)
+  api.lockWallet();
+  check('lock drops decrypted Nocturne state from memory', api.ncState() === null);
+  await api.unlockVault(PASSWORD);
+  await api.actNcOpen();
+  check('state reopens after lock/unlock', !!api.ncState() && api.ncState().profile.handle === 'kshot');
+
+  // 4 — new chat, message, deterministic reply + ticks
+  api.state.f['nc.newhandle'] = 'friend_x';
+  await api.actNcNewChatGo();
+  const convo = api.ncState().convos.find((c) => c.handle === 'friend_x');
+  check('user convo created', !!convo && convo.userMade === true);
+  api.state.nc.convoId = convo.id;
+  api.state.f['nc.msg'] = 'hello there';
+  await api.actNcMsgSend();
+  check('own message recorded as sent', convo.msgs.some((m) => m.from === 'me' && m.text === 'hello there'));
+  check('reply scheduled (in flight)', !!convo.incoming && convo.incoming.at > Date.now());
+  convo.incoming.at = Date.now() - 1; // simulate the delay elapsing
+  api.ncSettleTick();
+  check('reply delivered once due', !!convo.msgs.filter((m) => m.from === 'them').pop() && convo.incoming === null);
+  check('own message ticked to read', convo.msgs.find((m) => m.text === 'hello there').status === 'read');
+
+  // 5 — self-mail lands in inbox + sent
+  const inboxBefore = api.ncState().mail.inbox.length;
+  api.state.f['nc.mailto'] = 'kshot@nocturne.night';
+  api.state.f['nc.mailsubject'] = 'self check';
+  api.state.f['nc.mailbody'] = 'echo to myself';
+  await api.actNcMailSend();
+  const n5 = api.ncState();
+  check('self-mail lands in inbox (unread)', n5.mail.inbox.length === inboxBefore + 1 && n5.mail.inbox[0].subject === 'self check' && n5.mail.inbox[0].read === false);
+  check('self-mail kept in sent folder', n5.mail.sent.length === 1 && n5.mail.sent[0].to === 'kshot@nocturne.night');
+
+  // 6 — NIGHT: invalid address rejected, valid address sealed
+  api.state.nc.tab = 'send';
+  api.state.nc.send.asset = 'NIGHT';
+  api.state.nc.send.stage = 'form';
+  api.state.f['nc.sendaddr'] = 'not-an-address';
+  api.state.f['nc.sendamt'] = '1';
+  await api.actNcReview();
+  check('invalid NIGHT address rejected', api.state.nc.send.stage === 'form' && /valid Midnight/i.test(api.state.formError || ''));
+
+  api.state.f['nc.sendaddr'] = api.addressFor('midnight');
+  api.state.f['nc.sendamt'] = '12.5';
+  api.state.f['nc.sendmemo'] = 'sealed test';
+  await api.actNcReview();
+  check('NIGHT review built (sealed)', api.state.nc.send.stage === 'review' && api.state.nc.send.built.sealed === true);
+  check('NIGHT amount parsed (6 decimals)', api.state.nc.send.amountMicro === 12500000n);
+  await api.actNcConfirm();
+  check('confirm opens a password modal', !!api.state.modal && api.state.modal.kind === 'password');
+  await api.state.modal.onOk(PASSWORD);
+  api.state.modal = null; // emulate the UI closing the modal after success
+  const n6 = api.ncState();
+  check('NIGHT receipt recorded as sealed', n6.txs.length === 1 && n6.txs[0].status === 'sealed' && n6.txs[0].asset === 'NIGHT' && !n6.txs[0].txid);
+  check('send flow finished on receipt', api.state.nc.send.stage === 'done');
+
+  // 7 — ADA: real pipeline through Nocturne (build -> sign -> broadcast)
+  api.state.nc.send = { ...api.state.nc.send, asset: 'ADA', stage: 'form', built: null, receipt: null };
+  api.state.f['nc.sendaddr'] = CIP19_BASE;
+  api.state.f['nc.sendamt'] = '2';
+  api.state.f['nc.sendmemo'] = 'from nocturne';
+  await api.actNcReview();
+  check('ADA review built via the real pipeline', api.state.nc.send.stage === 'review' && api.state.nc.send.amountLovelace === 2000000n);
+  await api.actNcConfirm();
+  const m7 = api.state.modal;
+  check('ADA confirm opens a password modal', !!m7 && m7.kind === 'password');
+  await m7.onOk(PASSWORD);
+  api.state.modal = null;
+  const adaTx = api.ncState().txs[0];
+  check('ADA transfer broadcast with txid', adaTx.status === 'broadcast' && adaTx.asset === 'ADA' && /^faketxid[0-9a-f]{64}$/.test(adaTx.txid || ''));
+  check('ADA receipt carries explorer link', /cardanoscan\.io\/tx\//.test(adaTx.explorer || ''));
+
+  // 8 — store re-sealed after the session
+  const blob2 = backing['eclipse.nocturne.v1'];
+  check('store re-sealed after sends', !!blob2 && blob2.mode === 'aes-256-gcm' && !JSON.stringify(blob2).includes('hello there'));
+
+  // 9 — lock drops the state; unlock restores it from the sealed store
+  api.lockWallet();
+  await api.unlockVault(PASSWORD);
+  await api.actNcOpen();
+  check('final reopen restores full state', !!api.ncState() && api.ncState().mail.sent.length === 1 && api.ncState().txs.length === 2);
+}
+
+/* ---------------------- live USD prices (display-only) --------------------- */
+
+section('Prices (CoinGecko, display-only)');
+{
+  const realFetch = globalThis.fetch;
+  const stubFetch = (body) => async () => ({ ok: true, status: 200, json: async () => body });
+  globalThis.fetch = stubFetch({ cardano: { usd: 0.21 }, bitcoin: { usd: 100000 }, 'midnight-3': { usd: 0.0195 } });
+
+  const d = await api.refreshPrices(true);
+  check('refreshPrices stores all three prices', d && d.cardano === 0.21 && d.bitcoin === 100000 && d.midnight === 0.0195);
+  check('fmtUsd formats sub-$1 with 4dp', api.fmtUsd(0.0195) === '$0.0195');
+  check('fmtUsd formats whole dollars', api.fmtUsd(10000) === '$10,000');
+
+  api.state.balances = { cardano: { lovelace: 100000000n } }; // 100 ADA @ $0.21
+  check('ADA hero shows USD value', api.balanceHero('cardano').includes('≈ $21'));
+  api.state.balances = { bitcoin: { sats: 10000000n, received: 10000000n } }; // 0.1 BTC @ $100,000
+  check('BTC hero shows USD value', api.balanceHero('bitcoin').includes('≈ $10,000'));
+  check('Midnight hero shows unit price (v1 has no balance)', api.balanceHero('midnight').includes('1 NIGHT ≈ $0.0195'));
+  api.state.balances = { cardano: { loading: true } };
+  check('loading hero has no USD line', !api.balanceHero('cardano').includes('usd'));
+
+  // offline → keeps previous values, never throws
+  globalThis.fetch = async () => { throw new Error('offline'); };
+  const before = api.priceState().data;
+  const after = await api.refreshPrices(true);
+  check('offline refresh keeps previous prices', after === before);
+
+  // no data at all → USD line hidden entirely
+  const p = api.priceState(); p.data = null; p.ts = 0;
+  api.state.balances = { cardano: { lovelace: 100000000n } };
+  check('no price data hides the USD line', !api.balanceHero('cardano').includes('≈ $'));
+
+  globalThis.fetch = realFetch;
+  api.state.balances = {};
 }
 
 /* -------------------------------- done -------------------------------- */
