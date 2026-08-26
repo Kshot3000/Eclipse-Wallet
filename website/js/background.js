@@ -181,19 +181,20 @@
     ctx.shadowColor = rgba(BRIGHT, glow);
     ctx.shadowBlur = R * (0.06 + 0.10 * pulse);
 
-    // The NIGHT ring.
+    // The NIGHT ring — bold, like the official mark (stroke ≈ 0.186·ringR).
     ctx.strokeStyle = rgba(SILVER, 0.92);
-    ctx.lineWidth = Math.max(2, R * 0.026 * scale);
+    ctx.lineWidth = Math.max(2, 0.186 * ringR);
     ctx.beginPath(); ctx.arc(cx, cy, ringR, 0, Math.PI * 2); ctx.stroke();
 
-    // Three vertical squares (the NIGHT motif) — same proportions as the
-    // mark used across the site: side = 0.30·ringR, centers at ±0.444·ringR.
-    const s = ringR * 0.30;
-    const off = ringR * 0.444;
+    // Three vertical squares (the NIGHT motif) — measured from the official
+    // symbol: side = 0.199·ringR, centers at -0.646, -0.319, +0.003·ringR.
+    // Stacked high so the group points at midnight (12 o'clock).
+    const s = ringR * 0.199;
     ctx.fillStyle = rgba(BRIGHT, 0.98);
-    for (const dy of [-off, 0, off]) {
+    for (const k of [-0.646, -0.319, 0.003]) {
+      const y = cy + k * ringR;
       ctx.beginPath();
-      ctx.rect(cx - s / 2, cy + dy - s / 2, s, s);
+      ctx.rect(cx - s / 2, y - s / 2, s, s);
       ctx.fill();
     }
     ctx.restore();
