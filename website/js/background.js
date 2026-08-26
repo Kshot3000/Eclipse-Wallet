@@ -2,8 +2,8 @@
    Eclipse Wallet — living background
    Three blockchains in one canvas:
      · Midnight  — a breathing eclipse whose moon is the NIGHT
-                   token mark (ring + three squares) rendered as
-                   a live clock (hour / minute / second hands)
+                   token mark (ring + three squares), pulsing
+                   gently like a slow heartbeat
      · Bitcoin   — a chain of ₿ blocks drifting with data pulses
      · Cardano   — a hexagonal relay lattice with hopping signals,
                    plus small ADA tokens streaking across the sky
@@ -122,7 +122,7 @@
     }
   }
 
-  // Shared eclipse geometry so the corona, disk and clock stay centered.
+  // Shared eclipse geometry so the corona, disk and NIGHT mark stay centered.
   function eclipseCenter() {
     const cx = W * 0.74 + mouse.x * -16;
     const cy = H * 0.40 + mouse.y * -16;
@@ -161,94 +161,42 @@
     ctx.beginPath(); ctx.arc(cx, cy, R * 0.985, 0, Math.PI * 2); ctx.fill();
   }
 
-  /* ----- The moon as the Midnight token mark, working as a clock ----- */
-  function drawMidnightClock() {
+  /* ----- The moon as the pulsing Midnight NIGHT token mark ----- */
+  function drawMidnightPulse(t) {
     const { cx, cy, R } = eclipseCenter();
-    const now = new Date();
-    const h = now.getHours() % 12;
-    const m = now.getMinutes();
-    const sec = now.getSeconds() + now.getMilliseconds() / 1000;
-    const ang = (unit) => (unit / 60) * Math.PI * 2 - Math.PI / 2;
-    const hourA = ang(h * 5 + m / 12);
-    const minA = ang(m);
-    const secA = ang(sec);
+    const pulse = 0.5 + 0.5 * Math.sin(t * 1.05);  // slow breathing, ≈6s cycle
+    const scale = 1 + 0.06 * pulse;                 // gentle size pulse
+    const glow = 0.35 + 0.45 * pulse;               // pulsing halo
 
-    const ringR = R * 0.58;
+    const ringR = R * 0.58 * scale;
 
     // Faint face glow so it reads as a luminous coin, not just a ring.
     const face = ctx.createRadialGradient(cx, cy, R * 0.05, cx, cy, ringR);
-    face.addColorStop(0, rgba(SILVER, 0.10));
+    face.addColorStop(0, rgba(SILVER, 0.07 + 0.10 * pulse));
     face.addColorStop(1, rgba(SILVER, 0));
     ctx.fillStyle = face;
     ctx.beginPath(); ctx.arc(cx, cy, ringR, 0, Math.PI * 2); ctx.fill();
 
-    // The NIGHT ring (clock face) with a soft glow.
     ctx.save();
-    ctx.shadowColor = rgba(BRIGHT, 0.55);
-    ctx.shadowBlur = R * 0.12;
+    ctx.shadowColor = rgba(BRIGHT, glow);
+    ctx.shadowBlur = R * (0.06 + 0.10 * pulse);
+
+    // The NIGHT ring.
     ctx.strokeStyle = rgba(SILVER, 0.92);
-    ctx.lineWidth = Math.max(2, R * 0.026);
+    ctx.lineWidth = Math.max(2, R * 0.026 * scale);
     ctx.beginPath(); ctx.arc(cx, cy, ringR, 0, Math.PI * 2); ctx.stroke();
-    ctx.restore();
 
-    // 12 tick marks (cardinals a touch longer / brighter).
-    for (let i = 0; i < 12; i++) {
-      const a = (i / 12) * Math.PI * 2 - Math.PI / 2;
-      const major = i % 3 === 0;
-      const r1 = ringR * (major ? 0.80 : 0.87);
-      const r2 = ringR * 0.95;
-      ctx.strokeStyle = rgba(SILVER, major ? 0.85 : 0.42);
-      ctx.lineWidth = major ? Math.max(1.5, R * 0.02) : 1;
-      ctx.lineCap = 'round';
-      ctx.beginPath();
-      ctx.moveTo(cx + Math.cos(a) * r1, cy + Math.sin(a) * r1);
-      ctx.lineTo(cx + Math.cos(a) * r2, cy + Math.sin(a) * r2);
-      ctx.stroke();
-    }
-
-    const hand = (angle, len, width, color, tipSq) => {
-      const ex = cx + Math.cos(angle) * len;
-      const ey = cy + Math.sin(angle) * len;
-      ctx.strokeStyle = color;
-      ctx.lineWidth = width;
-      ctx.lineCap = 'round';
-      ctx.beginPath();
-      ctx.moveTo(cx, cy);
-      ctx.lineTo(ex, ey);
-      ctx.stroke();
-      if (tipSq) { // NIGHT squares as the hand tips
-        const sz = Math.max(3, R * 0.05);
-        ctx.fillStyle = color;
-        ctx.beginPath();
-        ctx.rect(ex - sz / 2, ey - sz / 2, sz, sz);
-        ctx.fill();
-      }
-    };
-
-    // Second hand (thin, bright, with a short counter-tail) — smooth sweep.
-    const secLen = R * 0.66;
-    ctx.strokeStyle = rgba(BRIGHT, 0.55);
-    ctx.lineWidth = Math.max(1, R * 0.011);
-    ctx.lineCap = 'round';
-    ctx.beginPath();
-    ctx.moveTo(cx - Math.cos(secA) * R * 0.09, cy - Math.sin(secA) * R * 0.09);
-    ctx.lineTo(cx + Math.cos(secA) * secLen, cy + Math.sin(secA) * secLen);
-    ctx.stroke();
-    ctx.fillStyle = rgba(BRIGHT, 0.85);
-    ctx.beginPath();
-    ctx.arc(cx + Math.cos(secA) * secLen, cy + Math.sin(secA) * secLen, Math.max(1.5, R * 0.016), 0, Math.PI * 2);
-    ctx.fill();
-
-    // Minute then hour (hour on top, shorter). Square-tipped = NIGHT motif.
-    hand(minA, R * 0.46, Math.max(2, R * 0.02), rgba(SILVER, 0.95), true);
-    hand(hourA, R * 0.30, Math.max(2.5, R * 0.03), rgba(BRIGHT, 0.96), true);
-
-    // Center hub = the NIGHT mark's middle square.
-    const hub = Math.max(3, R * 0.055);
+    // Three vertical squares (the NIGHT motif) — same proportions as the
+    // mark used across the site: side = 0.30·ringR, centers at ±0.444·ringR.
+    const s = ringR * 0.30;
+    const off = ringR * 0.444;
     ctx.fillStyle = rgba(BRIGHT, 0.98);
-    ctx.beginPath();
-    ctx.rect(cx - hub / 2, cy - hub / 2, hub, hub);
-    ctx.fill();
+    for (const dy of [-off, 0, off]) {
+      ctx.beginPath();
+      ctx.rect(cx - s / 2, cy + dy - s / 2, s, s);
+      ctx.fill();
+    }
+    ctx.restore();
   }
 
   /* ------------ Cardano tokens streaking as shooting stars ------------- */
@@ -466,7 +414,7 @@
     if (!reduced) updateMeteors(dt);
     drawMeteors();
     drawEclipse(t);
-    drawMidnightClock();
+    drawMidnightPulse(t);
     drawChain(t);
     drawHex(t);
     drawMotes(t);
