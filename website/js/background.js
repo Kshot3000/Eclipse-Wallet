@@ -1,9 +1,13 @@
 /* ============================================================
    Eclipse Wallet — living background
    Three blockchains in one canvas:
-     · Midnight  — a breathing eclipse with corona, over a starfield
+     · Midnight  — a breathing eclipse whose moon is the NIGHT
+                   token mark (ring + three squares) rendered as
+                   a live clock (hour / minute / second hands)
      · Bitcoin   — a chain of ₿ blocks drifting with data pulses
-     · Cardano   — a hexagonal relay lattice with hopping signals
+     · Cardano   — a hexagonal relay lattice with hopping signals,
+                   plus small ADA tokens streaking across the sky
+                   as shooting stars
    Plus dust motes, mouse parallax and click ripples.
    Vanilla canvas 2D, no dependencies. Respects prefers-reduced-motion.
    ============================================================ */
@@ -17,6 +21,8 @@
   const BLUE = [61, 111, 224];      // Cardano
   const ORANGE = [247, 147, 26];    // Bitcoin
   const WHITE = [230, 236, 248];    // Midnight stars
+  const SILVER = [201, 212, 234];   // Midnight (NIGHT mark)
+  const BRIGHT = [233, 238, 249];   // Midnight (hands / highlights)
   const rgba = (c, a) => `rgba(${c[0]},${c[1]},${c[2]},${a})`;
 
   const rand = (a, b) => a + Math.random() * (b - a);
@@ -27,6 +33,7 @@
   let stars = [], motes = [], ripples = [];
   let hexes = [], paths = [];
   let blocks = { xs: [], s: 40 };
+  let meteors = [], meteorTimer = 0.8;   // Cardano shooting stars
   const mouse = { tx: 0, ty: 0, x: 0, y: 0 };
   let rippleHue = 0;
 
@@ -90,6 +97,8 @@
       xs: Array.from({ length: n }, (_, i) => -bs + ((W + 2 * bs) / (n - 1)) * i),
     };
     ripples = [];
+    meteors = [];
+    meteorTimer = 0.6;
   }
 
   function resize() {
@@ -98,7 +107,7 @@
     cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     layout();
-    if (reduced) draw(2.2); // one static, composed frame
+    if (reduced) draw(2.2, 0); // one static, composed frame
   }
 
   /* ------------------------------ layers ------------------------------ */
@@ -113,10 +122,16 @@
     }
   }
 
-  function drawEclipse(t) {
+  // Shared eclipse geometry so the corona, disk and clock stay centered.
+  function eclipseCenter() {
     const cx = W * 0.74 + mouse.x * -16;
     const cy = H * 0.40 + mouse.y * -16;
     const R = clamp(Math.min(W, H) * 0.30, 100, 300);
+    return { cx, cy, R };
+  }
+
+  function drawEclipse(t) {
+    const { cx, cy, R } = eclipseCenter();
     const breathe = 1 + 0.035 * Math.sin(t * 0.7);
 
     // Corona (brightest at the rim, fading orange outward).
@@ -137,13 +152,170 @@
       ctx.beginPath(); ctx.arc(cx, cy, R * (1.02 + ph * 0.6), 0, Math.PI * 2); ctx.stroke();
     }
 
-    // The eclipsed disk — near-black with a faint blue sheen.
+    // The eclipsed disk — near-black with a faint blue sheen (the "moon").
     const dg = ctx.createRadialGradient(cx - R * 0.3, cy - R * 0.35, R * 0.1, cx, cy, R);
     dg.addColorStop(0, '#12141d');
     dg.addColorStop(0.72, '#08090f');
     dg.addColorStop(1, '#04050a');
     ctx.fillStyle = dg;
     ctx.beginPath(); ctx.arc(cx, cy, R * 0.985, 0, Math.PI * 2); ctx.fill();
+  }
+
+  /* ----- The moon as the Midnight token mark, working as a clock ----- */
+  function drawMidnightClock() {
+    const { cx, cy, R } = eclipseCenter();
+    const now = new Date();
+    const h = now.getHours() % 12;
+    const m = now.getMinutes();
+    const sec = now.getSeconds() + now.getMilliseconds() / 1000;
+    const ang = (unit) => (unit / 60) * Math.PI * 2 - Math.PI / 2;
+    const hourA = ang(h * 5 + m / 12);
+    const minA = ang(m);
+    const secA = ang(sec);
+
+    const ringR = R * 0.58;
+
+    // Faint face glow so it reads as a luminous coin, not just a ring.
+    const face = ctx.createRadialGradient(cx, cy, R * 0.05, cx, cy, ringR);
+    face.addColorStop(0, rgba(SILVER, 0.10));
+    face.addColorStop(1, rgba(SILVER, 0));
+    ctx.fillStyle = face;
+    ctx.beginPath(); ctx.arc(cx, cy, ringR, 0, Math.PI * 2); ctx.fill();
+
+    // The NIGHT ring (clock face) with a soft glow.
+    ctx.save();
+    ctx.shadowColor = rgba(BRIGHT, 0.55);
+    ctx.shadowBlur = R * 0.12;
+    ctx.strokeStyle = rgba(SILVER, 0.92);
+    ctx.lineWidth = Math.max(2, R * 0.026);
+    ctx.beginPath(); ctx.arc(cx, cy, ringR, 0, Math.PI * 2); ctx.stroke();
+    ctx.restore();
+
+    // 12 tick marks (cardinals a touch longer / brighter).
+    for (let i = 0; i < 12; i++) {
+      const a = (i / 12) * Math.PI * 2 - Math.PI / 2;
+      const major = i % 3 === 0;
+      const r1 = ringR * (major ? 0.80 : 0.87);
+      const r2 = ringR * 0.95;
+      ctx.strokeStyle = rgba(SILVER, major ? 0.85 : 0.42);
+      ctx.lineWidth = major ? Math.max(1.5, R * 0.02) : 1;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(cx + Math.cos(a) * r1, cy + Math.sin(a) * r1);
+      ctx.lineTo(cx + Math.cos(a) * r2, cy + Math.sin(a) * r2);
+      ctx.stroke();
+    }
+
+    const hand = (angle, len, width, color, tipSq) => {
+      const ex = cx + Math.cos(angle) * len;
+      const ey = cy + Math.sin(angle) * len;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = width;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(ex, ey);
+      ctx.stroke();
+      if (tipSq) { // NIGHT squares as the hand tips
+        const sz = Math.max(3, R * 0.05);
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.rect(ex - sz / 2, ey - sz / 2, sz, sz);
+        ctx.fill();
+      }
+    };
+
+    // Second hand (thin, bright, with a short counter-tail) — smooth sweep.
+    const secLen = R * 0.66;
+    ctx.strokeStyle = rgba(BRIGHT, 0.55);
+    ctx.lineWidth = Math.max(1, R * 0.011);
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(cx - Math.cos(secA) * R * 0.09, cy - Math.sin(secA) * R * 0.09);
+    ctx.lineTo(cx + Math.cos(secA) * secLen, cy + Math.sin(secA) * secLen);
+    ctx.stroke();
+    ctx.fillStyle = rgba(BRIGHT, 0.85);
+    ctx.beginPath();
+    ctx.arc(cx + Math.cos(secA) * secLen, cy + Math.sin(secA) * secLen, Math.max(1.5, R * 0.016), 0, Math.PI * 2);
+    ctx.fill();
+
+    // Minute then hour (hour on top, shorter). Square-tipped = NIGHT motif.
+    hand(minA, R * 0.46, Math.max(2, R * 0.02), rgba(SILVER, 0.95), true);
+    hand(hourA, R * 0.30, Math.max(2.5, R * 0.03), rgba(BRIGHT, 0.96), true);
+
+    // Center hub = the NIGHT mark's middle square.
+    const hub = Math.max(3, R * 0.055);
+    ctx.fillStyle = rgba(BRIGHT, 0.98);
+    ctx.beginPath();
+    ctx.rect(cx - hub / 2, cy - hub / 2, hub, hub);
+    ctx.fill();
+  }
+
+  /* ------------ Cardano tokens streaking as shooting stars ------------- */
+  function spawnMeteor() {
+    const fromLeft = Math.random() < 0.5;
+    const speed = rand(280, 560) * clamp(W / 1100, 0.7, 1.4);
+    const ang = (fromLeft ? 0.62 : Math.PI - 0.62) + rand(-0.10, 0.10);
+    const ux = Math.cos(ang), uy = Math.sin(ang);
+    meteors.push({
+      x: fromLeft ? -60 : W + 60,
+      y: rand(-30, H * 0.32),
+      vx: ux * speed, vy: uy * speed, ux, uy,
+      size: rand(4, 7),
+    });
+  }
+
+  function updateMeteors(dt) {
+    meteorTimer -= dt;
+    if (meteorTimer <= 0 && meteors.length < 5) {
+      spawnMeteor();
+      meteorTimer = rand(1.4, 3.6);
+    }
+    for (let i = meteors.length - 1; i >= 0; i--) {
+      const m = meteors[i];
+      m.x += m.vx * dt;
+      m.y += m.vy * dt;
+      if (m.x < -140 || m.x > W + 140 || m.y > H + 140) meteors.splice(i, 1);
+    }
+  }
+
+  // The Cardano token mark: a disc with the 1+6 dot logo.
+  function drawAdaCoin(x, y, r) {
+    ctx.fillStyle = rgba(BLUE, 0.95);
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = rgba([150, 185, 255], 0.85);
+    ctx.lineWidth = Math.max(1, r * 0.12);
+    ctx.stroke();
+    ctx.fillStyle = rgba([220, 232, 255], 0.96);
+    const dr = r * 0.56, dotr = Math.max(0.7, r * 0.17);
+    ctx.beginPath(); ctx.arc(x, y, dotr, 0, Math.PI * 2); ctx.fill(); // center
+    for (let i = 0; i < 6; i++) {
+      const a = -Math.PI / 2 + i * Math.PI / 3;
+      ctx.beginPath();
+      ctx.arc(x + Math.cos(a) * dr, y + Math.sin(a) * dr, dotr, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  function drawMeteors() {
+    if (!meteors.length) return;
+    for (const m of meteors) {
+      const tl = m.size * 9;
+      const bx = m.x - m.ux * tl, by = m.y - m.uy * tl;
+      const g = ctx.createLinearGradient(bx, by, m.x, m.y);
+      g.addColorStop(0, rgba(BLUE, 0));
+      g.addColorStop(0.5, rgba(BLUE, 0.28));
+      g.addColorStop(1, rgba([185, 208, 255], 0.85));
+      ctx.strokeStyle = g;
+      ctx.lineWidth = m.size * 0.55;
+      ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(m.x, m.y); ctx.stroke();
+      ctx.save();
+      ctx.shadowColor = rgba([150, 185, 255], 0.9);
+      ctx.shadowBlur = m.size * 2;
+      drawAdaCoin(m.x, m.y, m.size);
+      ctx.restore();
+    }
   }
 
   function chainY(x, t) {
@@ -246,7 +418,7 @@
       if (q >= 0) {
         const seg2 = Math.min(n - 2, Math.floor(q * (n - 1)));
         const local2 = q * (n - 1) - seg2;
-        const a2 = p.pts[seg2], b2 = p.pts[seg2 + 1];
+        const a2 = p.pts[seg2], b2 = p.pts[seg + 1];
         ctx.fillStyle = rgba(BLUE, 0.45);
         ctx.beginPath();
         ctx.arc(lerp(a2.x, b2.x, local2) + ox, lerp(a2.y, b2.y, local2) + oy, 1.8, 0, Math.PI * 2);
@@ -281,10 +453,13 @@
     }
   }
 
-  function draw(t) {
+  function draw(t, dt) {
     ctx.clearRect(0, 0, W, H);
     drawStars(t);
+    if (!reduced) updateMeteors(dt);
+    drawMeteors();
     drawEclipse(t);
+    drawMidnightClock();
     drawChain(t);
     drawHex(t);
     drawMotes(t);
@@ -294,17 +469,21 @@
   /* ------------------------------ loop -------------------------------- */
 
   let raf = 0;
+  let lastNow = 0;
   function frame(now) {
+    const dt = clamp((now - lastNow) / 1000, 0, 0.05);
+    lastNow = now;
     const t = now / 1000;
     mouse.x += (mouse.tx - mouse.x) * 0.06;
     mouse.y += (mouse.ty - mouse.y) * 0.06;
-    draw(t);
+    draw(t, dt);
     raf = requestAnimationFrame(frame);
   }
 
   function start() {
-    if (reduced) { draw(2.2); return; } // static composed frame
+    if (reduced) { draw(2.2, 0); return; } // static composed frame
     cancelAnimationFrame(raf);
+    lastNow = performance.now();
     raf = requestAnimationFrame(frame);
   }
 
