@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://kshot3000.github.io/eclipse-wallet/sitemap.xml
+Sitemap: https://kshot3000.github.io/Eclipse-Wallet/sitemap.xml
