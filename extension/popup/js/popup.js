@@ -34,7 +34,7 @@ const CHAIN = { cardano: CARDANO, bitcoin: BITCOIN, midnight: MIDNIGHT };
 const CHAIN_META = {
   cardano: { symbol: 'ADA', color: 'var(--ada)', icon: '◈' },
   bitcoin: { symbol: 'BTC', color: 'var(--btc)', icon: '₿' },
-  midnight: { symbol: 'NIGHT', color: 'var(--xno)', icon: '☾' },
+  midnight: { symbol: 'NIGHT', color: 'var(--xno)', icon: '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2.8"/><rect x="10.65" y="6.65" width="2.7" height="2.7" fill="currentColor"/><rect x="10.65" y="10.65" width="2.7" height="2.7" fill="currentColor"/><rect x="10.65" y="14.65" width="2.7" height="2.7" fill="currentColor"/></svg>' },
 };
 
 /* ------------------------------ storage ------------------------------ */
