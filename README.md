@@ -2,7 +2,7 @@
 
 **All-in-one, self-custody browser-extension wallet for [Cardano](https://cardano.org) (ADA), [Midnight](https://midnight.network/night) (NIGHT) and [Bitcoin](https://bitcoin.org) (BTC).** One Manifest-V3 codebase that runs on **Chrome** and **Brave**.
 
-> **Website:** <https://kshot3000.github.io/eclipse-wallet/> — source in [`website/`](website/), deployed to GitHub Pages via [`.github/workflows/pages.yml`](.github/workflows/pages.yml).
+> **Website:** <https://kshot3000.github.io/eclipse-wallet/> · **Developer docs:** <https://kshot3000.github.io/eclipse-wallet/docs.html> — source in [`website/`](website/), deployed to GitHub Pages via [`.github/workflows/pages.yml`](.github/workflows/pages.yml).
 >
 > **Built by** [@kshot9000](https://x.com/kshot9000) · [github.com/Kshot3000](https://github.com/Kshot3000) — creator of NightDream.io, EUTXO.DEX, Cardano SPO Tracker, Nocturne Messenger and The Cold Front.
 
@@ -56,6 +56,8 @@ First run walks you through **Create a wallet** (or import an existing BIP39 rec
 - **Recovery** — the 24-word phrase is your only backup. It is displayed once at creation, never persisted, and cannot be re-shown.
 
 ## dApp integration
+
+> **Building a dApp?** Start with the full developer reference: <https://kshot3000.github.io/eclipse-wallet/docs.html> — detection, `getAddress`, `signMessage`, `request`, every error string, the approval lifecycle, and best practices.
 
 On `http:`/`https:` pages Eclipse injects `window.eclipse` (alias `window.EclipseWallet`):
 
@@ -115,8 +117,10 @@ tests/
   smoke_extension.mjs      63 offline integration checks of the real popup code paths
   vectors/                 spec test vectors (BIP39, RFC 8032, BIP143, BIP340, CBOR, …)
 website/                   GitHub Pages site (vanilla HTML/CSS/JS, no build step):
-  index.html · 404.html · css/site.css · js/background.js (living 3-chain canvas)
-  js/site.js · js/vendor/qrcode.js · assets/logo.png · assets/favicon.png
+  index.html · docs.html (developer docs) · 404.html · css/site.css
+  js/background.js (living 3-chain canvas) · js/live.js (live network strip)
+  js/site.js · js/vendor/qrcode.js · robots.txt · sitemap.xml
+  assets/logo.png · assets/favicon.png
 .github/workflows/pages.yml   deploys website/ to GitHub Pages on push to main
 ```
 

@@ -24,6 +24,7 @@
   <noscript><style>.reveal{opacity:1;transform:none}</style></noscript>
   <script src="js/vendor/qrcode.js"></script>
   <script defer src="js/background.js"></script>
+  <script defer src="js/live.js"></script>
   <script defer src="js/site.js"></script>
 </head>
 <body>
@@ -36,10 +37,12 @@
     <div class="inner">
       <a class="brand" href="/"><img src="assets/logo.png" alt="Eclipse Wallet logo"><span>Eclipse Wallet</span></a>
       <nav class="links" aria-label="Sections">
+        <a href="#why">Why</a>
         <a href="#chains">Chains</a>
         <a href="#security">Security</a>
         <a href="#dapps">dApps</a>
-        <a href="#creator">Creator</a>
+        <a href="docs.html">Docs</a>
+        <a href="#roadmap">Roadmap</a>
         <a href="#donate">Donate</a>
         <a href="#install">Install</a>
       </nav>
@@ -61,6 +64,58 @@
         <span class="chip" style="--c:#3d6fe0">ADA · Cardano</span>
         <span class="chip" style="--c:#c9d4ea">NIGHT · Midnight</span>
         <span class="chip" style="--c:#f7931a">BTC · Bitcoin</span>
+      </div>
+    </section>
+
+    <!-- ============================ LIVE STRIP =========================== -->
+    <div class="live-wrap reveal">
+      <div class="live-strip" aria-label="Live network data">
+        <span class="live-pill" style="--c:#3d6fe0"><span class="dot"></span>ADA <span class="val" id="live-ada">…</span><span class="sep">·</span>Conway era</span>
+        <span class="live-pill" style="--c:#f7931a"><span class="dot"></span>BTC <span class="val" id="live-btc-price">…</span><span class="sep">·</span><span class="val" id="live-btc-height">…</span></span>
+        <span class="live-pill" style="--c:#c9d4ea"><span class="dot"></span>NIGHT <span class="sep">·</span>privacy chain</span>
+        <span class="live-stamp" id="live-stamp">waiting for network…</span>
+      </div>
+    </div>
+
+    <!-- =============================== WHY ================================ -->
+    <section id="why" class="reveal">
+      <div class="wrap">
+        <div class="sec-head">
+          <div class="kicker">Why Eclipse</div>
+          <h2>The wallet that keeps up</h2>
+          <p>Phantom made one-chain wallets feel effortless. Eclipse brings that feel to the Cardano side of the market — with Midnight and Bitcoin in the same icon.</p>
+        </div>
+        <div class="why-grid">
+          <div class="wallet-mock" aria-hidden="true">
+            <div class="wm-top">
+              <span class="wm-brand"><img src="assets/logo.png" alt="">Eclipse</span>
+              <span class="wm-status"><span class="wm-dot"></span>Unlocked</span>
+            </div>
+            <div class="wm-hero">
+              <div class="wm-label">Cardano · mainnet</div>
+              <div class="wm-amt">1,234.56<small>ADA</small></div>
+              <div class="wm-chips">
+                <span class="wm-chip blue">ADA</span>
+                <span class="wm-chip silver">NIGHT</span>
+                <span class="wm-chip orange">BTC</span>
+              </div>
+            </div>
+            <div class="wm-rows">
+              <div class="wm-row"><span class="wd ada"></span>Cardano <b>1,234.56 ADA</b></div>
+              <div class="wm-row"><span class="wd mid"></span>Midnight <b>0.85 NIGHT</b></div>
+              <div class="wm-row"><span class="wd btc"></span>Bitcoin <b>0.04218 BTC</b></div>
+            </div>
+            <div class="wm-nav">
+              <span class="wm-tab on">Wallet</span><span class="wm-tab">dApps</span><span class="wm-tab">Sign</span><span class="wm-tab">Settings</span>
+            </div>
+          </div>
+          <div class="bullets">
+            <div class="bullet"><span class="bk">⚡</span><div><h3>Instant, local-first</h3><p>Everything renders on-device. No spinners waiting on a backend — the only network calls are the chain APIs themselves.</p></div></div>
+            <div class="bullet"><span class="bk">☰</span><div><h3>Three chains, zero context-switching</h3><p>ADA, NIGHT and BTC balances, sends and signatures from one toolbar icon — with per-chain network selection.</p></div></div>
+            <div class="bullet"><span class="bk">🛡️</span><div><h3>Approval-first dApps</h3><p>Every dApp request is explicit. Approve, reject, or remember an origin — nothing runs silently, ever.</p></div></div>
+            <div class="bullet"><span class="bk">🔑</span><div><h3>Self-custody, zero accounts</h3><p>No email, no phone number, no sync. Your seed is encrypted on this device and shown exactly once.</p></div></div>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -161,6 +216,8 @@
           <p>A small, honest provider API — approve what you want, sign when you choose.</p>
         </div>
         <div class="dapp-grid">
+          <div>
+          <div class="codebox-head"><span class="lbl">dApp snippet</span><button class="btn sm" type="button" data-copy="const addr = await window.eclipse.getAddress('cardano');&#10;&#10;const sig = await window.eclipse.signMessage(&#10;  'bitcoin', 'Hello from my dApp!')&#10;;"><span class="copy-label">Copy snippet</span></button></div>
           <div class="codebox"><span class="cm">// Eclipse injects window.eclipse on every http(s) page</span>
 <span class="kw">const</span> addr = <span class="kw">await</span> window.eclipse.<span class="fn">getAddress</span>(<span class="str">'cardano'</span>);
 
@@ -169,6 +226,7 @@
   <span class="str">'bitcoin'</span>, <span class="str">'Hello from my dApp!'</span>
 );
 <span class="cm">// → { chain, scheme, signature, pubKey, address }</span></div>
+          </div>
           <div class="dapp-notes">
             <div class="note">
               <h3>Nothing silent, ever</h3>
@@ -182,6 +240,77 @@
               <h3>No key access in the broker</h3>
               <p>Signing happens in the unlocked popup. The worker that relays dApp traffic cannot derive or sign anything.</p>
             </div>
+          </div>
+        </div>
+        <div class="docs-cta">
+          <div>
+            <h3>New to dApp integration?</h3>
+            <p>The full developer reference — every method, result shape, error string and lifecycle detail — lives on its own page.</p>
+          </div>
+          <a class="btn primary" href="docs.html">Read the developer docs →</a>
+        </div>
+        <div class="api-ref">
+          <div class="api-card">
+            <h3>API reference</h3>
+            <table class="api-table">
+              <tr><th>Method</th><th>Returns</th></tr>
+              <tr><td><code>eclipse.isEclipse</code> · <code>eclipse.chains</code></td><td>detection + capability list</td></tr>
+              <tr><td><code>eclipse.getAddress(chain)</code></td><td><code>{ address, chain, network }</code></td></tr>
+              <tr><td><code>eclipse.signMessage(chain, message)</code></td><td><code>{ chain, scheme, signature, pubKey, address }</code></td></tr>
+              <tr><td><code>eclipse.request({ type, … })</code></td><td>generic form — <code>eclipse_getAddress</code> / <code>eclipse_signMessage</code></td></tr>
+            </table>
+          </div>
+          <div class="api-card">
+            <h3>Behaviour</h3>
+            <div class="api-list">
+              <div class="it"><span class="ic">🔍</span><span><b>Detect first:</b> <code>if (window.eclipse) { … }</code> — injected on every http(s) page, the same pattern major wallets use.</span></div>
+              <div class="it"><span class="ic">⏱️</span><span><b>Five-minute window</b> per request. The user sees a badge and a notification, then decides.</span></div>
+              <div class="it"><span class="ic">🚫</span><span>Rejections resolve as <code>Rejected by user</code>; no answer at all as <code>Request timed out</code>.</span></div>
+              <div class="it"><span class="ic">🔐</span><span><b>Signing needs an unlocked wallet</b> — and the dApp broker never touches your keys.</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================= ROADMAP ============================= -->
+    <section id="roadmap" class="reveal">
+      <div class="wrap">
+        <div class="sec-head">
+          <div class="kicker">Roadmap</div>
+          <h2>Where Eclipse is heading</h2>
+          <p>v0.1 is honest about what it does. Here's the rest — in the order it ships.</p>
+        </div>
+        <div class="roadmap">
+          <div class="rm-col shipped">
+            <div class="tag2">v0.1 · shipped</div>
+            <h3>The foundation</h3>
+            <ul>
+              <li><span class="rm-dot"></span>Addresses + QR on all three chains</li>
+              <li><span class="rm-dot"></span>ADA &amp; BTC sends with automatic fees</li>
+              <li><span class="rm-dot"></span>Message signing: Ed25519 · BIP340 · ECDSA</li>
+              <li><span class="rm-dot"></span>window.eclipse dApp provider with approvals</li>
+              <li><span class="rm-dot"></span>Encrypted local vault (scrypt + AES-256-GCM)</li>
+            </ul>
+          </div>
+          <div class="rm-col next">
+            <div class="tag2">v0.2 · next</div>
+            <h3>More chains, more depth</h3>
+            <ul>
+              <li><span class="rm-dot"></span>NIGHT transfers + balances on Midnight</li>
+              <li><span class="rm-dot"></span>Cardano native tokens (MA)</li>
+              <li><span class="rm-dot"></span>Transaction history in-wallet</li>
+            </ul>
+          </div>
+          <div class="rm-col later">
+            <div class="tag2">v1.0 · planned</div>
+            <h3>Full wallet</h3>
+            <ul>
+              <li><span class="rm-dot"></span>Staking &amp; delegation on Cardano</li>
+              <li><span class="rm-dot"></span>CIP-30 compatible provider</li>
+              <li><span class="rm-dot"></span>Chrome + Brave store listings</li>
+              <li><span class="rm-dot"></span>Multiple accounts</li>
+            </ul>
           </div>
         </div>
       </div>
@@ -257,6 +386,42 @@
       </div>
     </section>
 
+    <!-- =============================== FAQ ================================ -->
+    <section id="faq" class="reveal">
+      <div class="wrap">
+        <div class="sec-head">
+          <div class="kicker">FAQ</div>
+          <h2>Questions, answered</h2>
+        </div>
+        <div class="faq">
+          <details>
+            <summary>Where are my keys stored?<span class="pm">+</span></summary>
+            <div class="a">On this device, in an <b>encrypted vault</b> (scrypt N = 2¹⁴ → AES-256-GCM over your password). While unlocked, the seed exists only in the popup's page memory. Nothing is ever uploaded anywhere.</div>
+          </details>
+          <details>
+            <summary>Can I import an existing wallet?<span class="pm">+</span></summary>
+            <div class="a">Yes — at first run you can import any <b>BIP39 recovery phrase</b> (English wordlist) instead of creating a new one.</div>
+          </details>
+          <details>
+            <summary>Why isn't Eclipse in the Chrome Web Store yet?<span class="pm">+</span></summary>
+            <div class="a">v0.1 ships as an <b>unpacked extension</b> — three clicks to install, no store queue. Store listings are on the roadmap.</div>
+          </details>
+          <details>
+            <summary>Which networks are supported?<span class="pm">+</span></summary>
+            <div class="a">Cardano: Mainnet / Preview / Preprod · Bitcoin: Mainnet / Testnet · Midnight: Mainnet / Testnet / Devnet. Switch per chain in Settings — the wallet validates that addresses match the selected network before letting you sign.</div>
+          </details>
+          <details>
+            <summary>Does Eclipse collect my data?<span class="pm">+</span></summary>
+            <div class="a">No. The wallet talks only to the public chain APIs it needs (Koios, Blockstream, mempool.space). This site has <b>no analytics, no tracking, no third-party scripts</b> — every dependency is vendored in the repo.</div>
+          </details>
+          <details>
+            <summary>I forgot my password. Can it be recovered?<span class="pm">+</span></summary>
+            <div class="a">The vault can't be decrypted without it — by design. Your <b>24-word recovery phrase</b> is the only way back in: wipe the device and re-import. That's why it's shown once and never stored.</div>
+          </details>
+        </div>
+      </div>
+    </section>
+
     <!-- ============================= INSTALL ============================ -->
     <section id="install" class="reveal">
       <div class="wrap">
@@ -299,6 +464,8 @@
       <div class="fine">© <span data-year>2026</span> kshot9000 · Eclipse is a self-custody wallet: your keys, your coins, your responsibility. Not financial advice.</div>
     </div>
   </footer>
+
+  <button class="totop" type="button" aria-label="Back to top">↑</button>
 
 </body>
 </html>

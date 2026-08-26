@@ -67,4 +67,45 @@
   /* ------------------------------ year ------------------------------ */
   const y = document.querySelector('[data-year]');
   if (y) y.textContent = String(new Date().getFullYear());
+
+  /* ------------------- nav / TOC active link scroll-spy ------------- */
+  const navLinks = Array.from(
+    document.querySelectorAll('.nav .links a[href^="#"], .toc a[href^="#"]')
+  );
+  if (navLinks.length && 'IntersectionObserver' in window) {
+    const byId = new Map(navLinks.map((a) => ['#' + a.getAttribute('href').slice(1), a]));
+    const io = new IntersectionObserver((entries) => {
+      for (const en of entries) {
+        if (!en.isIntersecting) continue;
+        const link = byId.get('#' + en.target.id);
+        if (!link) continue;
+        navLinks.forEach((a) => a.classList.remove('active'));
+        link.classList.add('active');
+      }
+    }, { rootMargin: '-40% 0px -55% 0px' });
+    byId.forEach((_, id) => {
+      const el = document.getElementById(id.slice(1));
+      if (el) io.observe(el);
+    });
+  }
+
+  /* ---------------------------- back to top -------------------------- */
+  const totop = document.querySelector('.totop');
+  if (totop) {
+    let ticking = false;
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        totop.classList.toggle('show', window.scrollY > 700);
+        ticking = false;
+      });
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+    totop.addEventListener('click', () => {
+      const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+      window.scrollTo({ top: 0, behavior: reduced ? 'auto' : 'smooth' });
+    });
+  }
 })();

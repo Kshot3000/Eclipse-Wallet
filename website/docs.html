@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Developer Docs — window.eclipse dApp API · Eclipse Wallet</title>
+  <meta name="description" content="Integrate Eclipse Wallet into your dApp: detect window.eclipse, request Cardano (ADA), Midnight (NIGHT) or Bitcoin (BTC) addresses, sign messages, and handle approvals, errors and timeouts.">
+  <meta name="theme-color" content="#05060a">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Eclipse Wallet — Developer Docs">
+  <meta property="og:description" content="The complete window.eclipse dApp integration guide: getAddress, signMessage, request, errors, best practices and build-from-source.">
+  <meta property="og:url" content="https://kshot3000.github.io/eclipse-wallet/docs.html">
+  <meta property="og:image" content="https://kshot3000.github.io/eclipse-wallet/assets/logo.png">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:creator" content="@kshot9000">
+
+  <link rel="icon" type="image/png" href="assets/favicon.png">
+  <link rel="apple-touch-icon" href="assets/favicon.png">
+  <link rel="stylesheet" href="css/site.css">
+  <noscript><style>.reveal{opacity:1;transform:none}</style></noscript>
+  <script defer src="js/background.js"></script>
+  <script defer src="js/site.js"></script>
+</head>
+<body>
+
+  <canvas id="bg" aria-hidden="true"></canvas>
+  <div class="vignette" aria-hidden="true"></div>
+
+  <header class="nav">
+    <div class="inner">
+      <a class="brand" href="/"><img src="assets/logo.png" alt="Eclipse Wallet logo"><span>Eclipse Wallet</span></a>
+      <nav class="links" aria-label="Site">
+        <a href="/">Home</a>
+        <a href="/#chains">Chains</a>
+        <a href="/#security">Security</a>
+        <a href="/#donate">Donate</a>
+        <span class="nav-here" aria-current="page">Docs</span>
+      </nav>
+      <a class="btn primary sm" href="https://github.com/Kshot3000/eclipse-wallet" target="_blank" rel="noopener">GitHub</a>
+    </div>
+  </header>
+
+  <main class="docs">
+    <div class="docs-head">
+      <div class="kicker">Developer Docs</div>
+      <h1>Build on Eclipse</h1>
+      <p>Eclipse injects a minimal, approval-first provider — <span class="mono">window.eclipse</span> — on every http(s) page. Three chains, one object, no SDK, no backend. This is the complete integration reference.</p>
+      <div class="doc-chips">
+        <span class="chip" style="--c:#3d6fe0">cardano · ADA</span>
+        <span class="chip" style="--c:#c9d4ea">midnight · NIGHT</span>
+        <span class="chip" style="--c:#f7931a">bitcoin · BTC</span>
+        <span class="chip">v0.1.0</span>
+      </div>
+    </div>
+
+    <div class="docs-layout">
+      <!-- ============================ TOC ============================ -->
+      <aside class="toc" aria-label="On this page">
+        <div class="toc-title">On this page</div>
+        <a href="#intro">Introduction</a>
+        <a href="#detect">Detecting Eclipse</a>
+        <a href="#address">Requesting an address</a>
+        <a href="#sign">Signing messages</a>
+        <a href="#request-api">The request() API</a>
+        <a href="#errors">Errors &amp; timeouts</a>
+        <a href="#lifecycle">Request lifecycle</a>
+        <a href="#best-practices">Best practices</a>
+        <a href="#security">Security model</a>
+        <a href="#build">Build from source</a>
+        <a href="#contributing">Contributing</a>
+        <a href="#support">Support</a>
+      </aside>
+
+      <!-- ========================== CONTENT ========================== -->
+      <article class="doc">
+
+        <section id="intro" class="doc-sec reveal">
+          <h2>Introduction</h2>
+          <p>Eclipse is an all-in-one, self-custody browser wallet for <b>Cardano (ADA)</b>, <b>Midnight (NIGHT)</b> and <b>Bitcoin (BTC)</b>, running on Chrome and Brave. For developers it exposes the same kind of provider object as Phantom, MetaMask or Eternl:</p>
+          <div class="codebox"><span class="kw">window</span>.<span class="fn">eclipse</span>          <span class="cm">// the provider (alias: window.EclipseWallet)</span>
+<span class="kw">window</span>.<span class="fn">eclipse</span>.isEclipse   <span class="cm">// true</span>
+<span class="kw">window</span>.<span class="fn">eclipse</span>.name        <span class="cm">// 'EclipseWallet'</span>
+<span class="kw">window</span>.<span class="fn">eclipse</span>.version     <span class="cm">// '0.1.0'</span>
+<span class="kw">window</span>.<span class="fn">eclipse</span>.chains      <span class="cm">// ['cardano', 'midnight', 'bitcoin']</span></div>
+          <div class="callout">
+            <b>Approval-first by design.</b> Every method resolves only after the user approves the request in the wallet (or after it times out). Nothing runs silently, and the provider never exposes keys, raw transactions or any wallet internals.
+          </div>
+          <p class="meta">Scope of v0.1: address retrieval and message signing on all three chains. On-chain transaction building (CIP-30-style) is on the <a href="/#roadmap">roadmap</a>.</p>
+        </section>
+
+        <section id="detect" class="doc-sec reveal">
+          <h2>Detecting Eclipse</h2>
+          <p>The content script injects <span class="mono">window.eclipse</span> on every <span class="mono">http:</span>/<span class="mono">https:</span> page before your scripts run, and is a no-op if the object already exists. Feature-detect before you call anything — never assume the wallet is installed:</p>
+          <div class="codebox"><span class="kw">if</span> (<span class="kw">window</span>.eclipse) {
+  <span class="cm">// Detection is synchronous — no wallet round-trip happens yet.</span>
+  <span class="cm">// (Signing later requires the wallet to be unlocked.)</span>
+  <span class="kw">const</span> ok = <span class="kw">window</span>.eclipse.isEclipse;              <span class="cm">// true</span>
+  <span class="kw">const</span> chains = <span class="kw">window</span>.eclipse.chains;             <span class="cm">// ['cardano','midnight','bitcoin']</span>
+} <span class="kw">else</span> {
+  <span class="cm">// Show "install Eclipse" guidance instead of failing.</span>
+}</div>
+          <div class="callout warn">
+            <b>Don't block page load on the wallet.</b> Detection is synchronous and cheap; the wallet-specific UI should appear on user action (a "Connect with Eclipse" button), not automatically on page load.
+          </div>
+        </section>
+
+        <section id="address" class="doc-sec reveal">
+          <h2>Requesting an address</h2>
+          <p class="sig"><span class="mono">getAddress(chain) → Promise&lt;{ address, chain, network }&gt;</span></p>
+          <p>Asks the user for the wallet's address on the given chain. The address always matches the network the user has selected for that chain in Eclipse settings:</p>
+          <div class="codebox-head"><span class="lbl">getAddress</span><button class="btn sm" type="button" data-copy="const { address, chain, network } =\n  await window.eclipse.getAddress('cardano');"><span class="copy-label">Copy snippet</span></button></div>
+          <div class="codebox"><span class="cm">// One-liner:</span>
+<span class="kw">const</span> { address, chain, network } =
+  <span class="kw">await</span> <span class="kw">window</span>.eclipse.<span class="fn">getAddress</span>(<span class="str">'cardano'</span>);
+
+<span class="cm">// Typical dApp flow:</span>
+<span class="kw">if</span> (network === <span class="str">'mainnet'</span>) {
+  <span class="fn">showAddress</span>(<span class="str">'Receive ADA to:'</span>, address);   <span class="cm">// addr1…</span>
+}</div>
+          <div class="tablewrap">
+          <table class="dtable">
+            <tr><th>Chain</th><th>Address format</th><th>Networks you may receive</th></tr>
+            <tr><td><code>'cardano'</code></td><td>base <code>addr1…</code> (testnets use the <code>addr_test</code> HRP)</td><td><code>mainnet</code> · <code>preview</code> · <code>preprod</code></td></tr>
+            <tr><td><code>'midnight'</code></td><td>unshielded, bech32m</td><td><code>mainnet</code> · <code>testnet</code> · <code>devnet</code></td></tr>
+            <tr><td><code>'bitcoin'</code></td><td>native segwit <code>bc1…</code> (P2WPKH; <code>tb1…</code> on testnet)</td><td><code>mainnet</code> · <code>testnet</code></td></tr>
+          </table>
+          </div>
+          <p class="meta">The wallet validates that any address it later signs with matches the selected network — a dApp cannot trick a user into cross-network approvals.</p>
+        </section>
+
+        <section id="sign" class="doc-sec reveal">
+          <h2>Signing messages</h2>
+          <p class="sig"><span class="mono">signMessage(chain, message) → Promise&lt;{ chain, scheme, signature, pubKey, address }&gt;</span></p>
+          <p>Signs an arbitrary UTF-8 message with the wallet's key for that chain. Each chain uses its <b>native, spec-verified signing scheme</b> — no wallet-specific envelope:</p>
+          <div class="codebox"><span class="kw">const</span> sig = <span class="kw">await</span> <span class="kw">window</span>.eclipse.<span class="fn">signMessage</span>(
+  <span class="str">'bitcoin'</span>, <span class="str">'Hello from my dApp!'</span>
+);
+
+<span class="cm">// sig ===</span>
+{
+  chain:     <span class="str">'bitcoin'</span>,
+  scheme:    <span class="str">'ecdsa-secp256k1-sha256'</span>,
+  signature: <span class="str">'&lt;base64, 64 bytes&gt;'</span>,
+  pubKey:    <span class="str">'&lt;hex, 33-byte compressed key&gt;'</span>,
+  address:   <span class="str">'bc1…'</span>
+}</div>
+          <div class="tablewrap">
+          <table class="dtable">
+            <tr><th>Chain</th><th><code>scheme</code></th><th>Signed over</th><th>Signature</th><th><code>pubKey</code></th></tr>
+            <tr>
+              <td><code>'cardano'</code></td><td><code>ed25519</code></td>
+              <td>raw UTF-8 message bytes</td>
+              <td>64-byte Ed25519 (base64)</td>
+              <td>32-byte raw public key (hex)</td>
+            </tr>
+            <tr>
+              <td><code>'midnight'</code></td><td><code>bip340-schnorr</code></td>
+              <td>raw UTF-8 message bytes</td>
+              <td>64-byte BIP340 Schnorr (base64)</td>
+              <td>32-byte x-only key (hex)</td>
+            </tr>
+            <tr>
+              <td><code>'bitcoin'</code></td><td><code>ecdsa-secp256k1-sha256</code></td>
+              <td><code>SHA-256(message)</code></td>
+              <td>64-byte compact <code>r‖s</code>, low-S (base64)</td>
+              <td>33-byte compressed key (hex)</td>
+            </tr>
+          </table>
+          </div>
+          <div class="callout">
+            <b>Verifying off-chain.</b> All three schemes are standard and verifiable with any library: Ed25519 (RFC 8032), BIP340 (Schnorr over the raw message), and secp256k1 ECDSA over <span class="mono">SHA-256(message)</span>. The <span class="mono">scheme</span> field tells you exactly which check to run — branch on it, never on the chain string alone.
+          </div>
+          <p class="meta">Message limit: 100,000 characters. Signing requires the wallet to be <b>unlocked</b> — if the user approves while locked, you receive the <span class="mono">Wallet is locked — unlock first</span> error and can ask them to try again.</p>
+        </section>
+
+        <section id="request-api" class="doc-sec reveal">
+          <h2>The request() API</h2>
+          <p class="sig"><span class="mono">request(args) → Promise&lt;result&gt;</span></p>
+          <p>The generic form — the same call every convenience wrapper makes. Use it when you prefer a single, future-proof entry point:</p>
+          <div class="codebox"><span class="cm">// Request an address</span>
+<span class="kw">const</span> a = <span class="kw">await</span> <span class="kw">window</span>.eclipse.<span class="fn">request</span>({
+  type:  <span class="str">'eclipse_getAddress'</span>,
+  chain: <span class="str">'cardano'</span>,
+});
+
+<span class="cm">// Sign a message</span>
+<span class="kw">const</span> s = <span class="kw">await</span> <span class="kw">window</span>.eclipse.<span class="fn">request</span>({
+  type:    <span class="str">'eclipse_signMessage'</span>,
+  chain:   <span class="str">'midnight'</span>,
+  message: <span class="str">'I own this dApp account. — @kshot9000'</span>,
+});</div>
+          <div class="tablewrap">
+          <table class="dtable">
+            <tr><th>Field</th><th>Required</th><th>Values</th></tr>
+            <tr><td><code>type</code></td><td>yes</td><td><code>eclipse_getAddress</code> · <code>eclipse_signMessage</code></td></tr>
+            <tr><td><code>chain</code></td><td>yes</td><td><code>cardano</code> · <code>midnight</code> · <code>bitcoin</code></td></tr>
+            <tr><td><code>message</code></td><td>for <code>signMessage</code></td><td>string, ≤ 100,000 chars</td></tr>
+          </table>
+          </div>
+          <div class="tablewrap">
+          <table class="dtable">
+            <tr><th>Method</th><th>Shorthand</th><th>Returns</th></tr>
+            <tr><td><code>request({ type: 'eclipse_getAddress', chain })</code></td><td><code>getAddress(chain)</code></td><td><code>{ address, chain, network }</code></td></tr>
+            <tr><td><code>request({ type: 'eclipse_signMessage', chain, message })</code></td><td><code>signMessage(chain, message)</code></td><td><code>{ chain, scheme, signature, pubKey, address }</code></td></tr>
+          </table>
+          </div>
+        </section>
+
+        <section id="errors" class="doc-sec reveal">
+          <h2>Errors &amp; timeouts</h2>
+          <p>Every rejection is an <span class="mono">Error</span> whose message is a stable, documented string. Two of them are <b>user decisions</b> — treat them as normal flow, not failures. The rest are transport or state problems:</p>
+          <div class="tablewrap">
+          <table class="dtable">
+            <tr><th>Message</th><th>Meaning</th><th>Your dApp should…</th></tr>
+            <tr><td><code>Rejected by user</code></td><td>The user chose "Reject".</td><td>acknowledge gracefully; offer a retry.</td></tr>
+            <tr><td><code>Request timed out</code></td><td>No decision within 5 minutes.</td><td>same as rejection — don't auto-retry.</td></tr>
+            <tr><td><code>Wallet is locked — unlock first</code></td><td>Approved, but the wallet was locked.</td><td>ask the user to unlock and retry once.</td></tr>
+            <tr><td><code>Unknown chain in dApp request</code></td><td><code>chain</code> is not in <code>eclipse.chains</code>.</td><td>your bug — check the chain id.</td></tr>
+            <tr><td><code>dApp sent an empty message</code></td><td><code>message</code> was empty/missing.</td><td>your bug — send a real message.</td></tr>
+            <tr><td><code>Eclipse Wallet unreachable: …</code></td><td>Extension not installed / worker asleep.</td><td>show install guidance.</td></tr>
+            <tr><td><code>Eclipse Wallet did not respond</code></td><td>Transport returned nothing.</td><td>show install guidance / retry.</td></tr>
+          </table>
+          </div>
+          <div class="codebox"><span class="cm">// Reference error handling:</span>
+<span class="kw">try</span> {
+  <span class="kw">const</span> { address } = <span class="kw">await</span> <span class="kw">window</span>.eclipse.<span class="fn">getAddress</span>(<span class="str">'cardano'</span>);
+  <span class="fn">showAddress</span>(address);
+} <span class="kw">catch</span> (e) {
+  <span class="kw">if</span> (e.message === <span class="str">'Rejected by user'</span> ||
+      e.message === <span class="str">'Request timed out'</span>) {
+    <span class="fn">showHint</span>(<span class="str">'No problem — you can connect again anytime.'</span>);
+  } <span class="kw">else</span> <span class="kw">if</span> (e.message.startsWith(<span class="str">'Eclipse Wallet'</span>)) {
+    <span class="fn">showInstall</span>();
+  } <span class="kw">else</span> {
+    <span class="kw">throw</span> e;   <span class="cm">// unexpected — surface it</span>
+  }
+}</div>
+        </section>
+
+        <section id="lifecycle" class="doc-sec reveal">
+          <h2>Request lifecycle</h2>
+          <p>What happens between your <span class="mono">await</span> and the resolved result — and what the user sees:</p>
+          <div class="steps-doc">
+            <div class="sd"><span class="n">1</span><div><b>You call</b> <span class="mono">getAddress()</span> / <span class="mono">signMessage()</span>. The content script forwards it to the wallet's background broker with your page's origin.</div></div>
+            <div class="sd"><span class="n">2</span><div><b>The wallet queues it.</b> The toolbar badge increments. If the popup is closed, a desktop notification is shown: <i>"… wants your cardano address. Open Eclipse Wallet to approve."</i></div></div>
+            <div class="sd"><span class="n">3</span><div><b>The user decides.</b> In the dApps tab they see your origin, the chain, the exact message (for signing) and — optionally — a <i>Remember</i> checkbox so that origin isn't asked again for that chain.</div></div>
+            <div class="sd"><span class="n">4</span><div><b>The result comes back</b> — or the request expires after <b>5 minutes</b>. The queue survives browser/worker restarts, so a pending request is never silently lost.</div></div>
+          </div>
+          <div class="callout">
+            <b>Remembered origins</b> are listed in the dApps tab and can be removed at any time. Remembered origins still show up in the queue — they approve faster, but the user always sees what's happening.
+          </div>
+        </section>
+
+        <section id="best-practices" class="doc-sec reveal">
+          <h2>Best practices</h2>
+          <div class="bp-grid">
+            <div class="bp"><span class="bk">🔍</span><div><h3>Detect first</h3><p>Always branch on <span class="mono">if (window.eclipse)</span>. A dApp that works without the wallet is a dApp that works for everyone.</p></div></div>
+            <div class="bp"><span class="bk">👆</span><div><h3>Act on intent</h3><p>Request the address when the user clicks something — never on page load. That's the single biggest trust signal in web3 UX.</p></div></div>
+            <div class="bp"><span class="bk">🧾</span><div><h3>Show before you sign</h3><p>Render the exact message text in your UI so the user can confirm it matches what the wallet shows. Signing a surprise is the #1 phishing vector.</p></div></div>
+            <div class="bp"><span class="bk">🚸</span><div><h3>Handle rejection kindly</h3><p><span class="mono">Rejected by user</span> and <span class="mono">Request timed out</span> are decisions, not errors. No retry loops, no dark patterns — offer a clear "try again".</p></div></div>
+            <div class="bp"><span class="bk">🔐</span><div><h3>Treat results as sensitive</h3><p>Signatures and addresses are personal data. Don't console.log them, don't ship them to a backend the user didn't ask for.</p></div></div>
+            <div class="bp"><span class="bk">🌐</span><div><h3>Respect the network</h3><p>The <span class="mono">network</span> field in <span class="mono">getAddress()</span> is the user's choice. If your dApp is mainnet-only, say so and don't use testnet addresses.</p></div></div>
+          </div>
+        </section>
+
+        <section id="security" class="doc-sec reveal">
+          <h2>Security model</h2>
+          <p>What the provider exposes — and what it structurally cannot:</p>
+          <div class="bp-grid">
+            <div class="bp ok"><span class="bk">✅</span><div><h3>Exposed</h3><p>Public addresses, message signatures, chain ids, network ids, wallet name and version. All of it is public-key material.</p></div></div>
+            <div class="bp no"><span class="bk">🚫</span><div><h3>Never exposed</h3><p>Private keys, seeds, balances, transaction history, raw transaction bytes. v0.1 has no transaction-signing surface at all.</p></div></div>
+            <div class="bp ok"><span class="bk">🛡️</span><div><h3>Broker is keyless</h3><p>The background service worker that relays your requests has no access to key material. Signing happens in the unlocked popup page — a page it cannot read from.</p></div></div>
+            <div class="bp ok"><span class="bk">👁️</span><div><h3>Nothing silent</h3><p>Every request is visible: badge, notification, queue entry with origin + chain + message. Approval is per-request; remembering an origin is the user's explicit choice.</p></div></div>
+          </div>
+          <p class="meta">Full details in the <a href="/#security">security section</a> of the main site and in the repository's <span class="mono">README.md</span>.</p>
+        </section>
+
+        <section id="build" class="doc-sec reveal">
+          <h2>Build from source</h2>
+          <p>Eclipse is a single Manifest-V3 codebase — the same folder loads on Chrome and on Brave. No build step, no npm install, no credentials: every dependency is vendored in-repo.</p>
+          <div class="codebox"><span class="cm"># Clone</span>
+git clone https://github.com/Kshot3000/eclipse-wallet
+<span class="kw">cd</span> eclipse-wallet
+
+<span class="cm"># Verify (Node 22+, fully offline — 176 checks)</span>
+node tests/run_tests.mjs        <span class="cm"># 113 unit checks vs. official spec vectors</span>
+node tests/smoke_extension.mjs <span class="cm"># 63 offline integration checks</span>
+
+<span class="cm"># Load the extension</span>
+<span class="cm"># → chrome://extensions (or brave://extensions)</span>
+<span class="cm"># → Developer mode → "Load unpacked" → select extension/</span></div>
+          <p>Test coverage includes BIP39, SLIP-0010, RFC 8032 Ed25519, BIP143 + byte-exact signed BTC transactions, all 27 BIP340 vectors, Midnight SDK vectors, RFC 8949 CBOR and BLAKE2b KATs — every signature independently verified against the spec.</p>
+          <div class="tablewrap">
+          <table class="dtable">
+            <tr><th>Path</th><th>What it is</th></tr>
+            <tr><td><code>extension/manifest.json</code></td><td>MV3 manifest (Chrome + Brave, single build)</td></tr>
+            <tr><td><code>extension/background/</code></td><td>keyless dApp-request broker (service worker)</td></tr>
+            <tr><td><code>extension/content/</code></td><td><span class="mono">window.eclipse</span> provider injection</td></tr>
+            <tr><td><code>extension/popup/</code></td><td>the wallet UI — all key material lives here, in memory only</td></tr>
+            <tr><td><code>extension/lib/</code></td><td>pure-JS core: vault, BIP39, SLIP-10, bech32, CBOR, chain modules, dApp queue</td></tr>
+            <tr><td><code>extension/vendor/</code></td><td>vendored crypto: noble curves, BLAKE2b/SHA/scrypt, qrcode</td></tr>
+            <tr><td><code>tests/</code></td><td>offline test suites + spec vectors (BIP39, RFC 8032, BIP143, BIP340, CBOR…)</td></tr>
+            <tr><td><code>website/</code></td><td>this site — vanilla HTML/CSS/JS, deployed to GitHub Pages</td></tr>
+          </table>
+          </div>
+        </section>
+
+        <section id="contributing" class="doc-sec reveal">
+          <h2>Contributing</h2>
+          <p>Eclipse is built in the open by <a href="https://x.com/kshot9000" target="_blank" rel="noopener">@kshot9000</a>. The channel is simple:</p>
+          <div class="bp-grid">
+            <div class="bp"><span class="bk">🐛</span><div><h3>Bug reports &amp; ideas</h3><p>Open an <a href="https://github.com/Kshot3000/eclipse-wallet/issues" target="_blank" rel="noopener">issue</a> with the browser, the chain and what you expected vs. got.</p></div></div>
+            <div class="bp"><span class="bk">🩹</span><div><h3>One-off patches</h3><p>Attach your patch (inline diff, gist or fork) to the issue — small fixes get merged fast.</p></div></div>
+            <div class="bp"><span class="bk">🏗️</span><div><h3>Bigger work</h3><p>Open an issue describing scope first so we agree on fit before you invest a week.</p></div></div>
+            <div class="bp warn"><span class="bk">⚠️</span><div><h3>Security issues</h3><p>Please report these <b>privately</b> — DM <a href="https://x.com/kshot9000" target="_blank" rel="noopener">@kshot9000</a> on X — rather than as a public issue.</p></div></div>
+          </div>
+        </section>
+
+        <section id="support" class="doc-sec reveal">
+          <h2>Support</h2>
+          <p>Eclipse is free, open source and ad-free. If it earns a place in your toolbar or your dApp, a tip in ADA, BTC or ERG keeps it alive — the same addresses across all of <a href="https://x.com/kshot9000" target="_blank" rel="noopener">@kshot9000</a>'s projects, with QR codes and explorer links on the <a href="/#donate">donation page</a>.</p>
+          <div class="cta-row">
+            <a class="btn primary" href="/#donate">Donation addresses →</a>
+            <a class="btn" href="https://x.com/kshot9000" target="_blank" rel="noopener">𝕏 · @kshot9000</a>
+            <a class="btn" href="https://github.com/Kshot3000/eclipse-wallet" target="_blank" rel="noopener">GitHub</a>
+          </div>
+        </section>
+
+      </article>
+    </div>
+  </main>
+
+  <footer>
+    <div class="inner">
+      <div class="credit">Eclipse Wallet — built by <a href="https://x.com/kshot9000" target="_blank" rel="noopener">@kshot9000</a> for the Cardano, Midnight &amp; Bitcoin communities.</div>
+      <div class="flinks">
+        <a href="https://github.com/Kshot3000/eclipse-wallet" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://x.com/kshot9000" target="_blank" rel="noopener">X</a>
+        <a href="https://cardano.org" target="_blank" rel="noopener">Cardano</a>
+        <a href="https://midnight.network" target="_blank" rel="noopener">Midnight</a>
+        <a href="https://bitcoin.org" target="_blank" rel="noopener">Bitcoin</a>
+      </div>
+      <div class="fine">© <span data-year>2026</span> kshot9000 · Eclipse is a self-custody wallet: your keys, your coins, your responsibility. Not financial advice.</div>
+    </div>
+  </footer>
+
+  <button class="totop" type="button" aria-label="Back to top">↑</button>
+
+</body>
+</html>
