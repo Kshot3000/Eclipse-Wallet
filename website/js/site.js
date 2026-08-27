@@ -21,6 +21,47 @@
     reveals.forEach((el) => el.classList.add('in'));
   }
 
+  /* ------------------------- hero product tabs ---------------------- */
+  const device = document.querySelector('[data-device]');
+  if (device) {
+    const tabs = Array.from(device.querySelectorAll('.dev-tab'));
+    const screens = Array.from(device.querySelectorAll('.screen'));
+    const order = tabs.map((t) => t.dataset.screen);
+    let idx = 0;
+    let timer = null;
+    const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    function show(i) {
+      idx = ((i % order.length) + order.length) % order.length;
+      const key = order[idx];
+      tabs.forEach((t) => {
+        const on = t.dataset.screen === key;
+        t.classList.toggle('on', on);
+        t.setAttribute('aria-selected', String(on));
+      });
+      screens.forEach((s) => {
+        const on = s.dataset.screen === key;
+        s.classList.toggle('on', on);
+        if (on) s.removeAttribute('hidden');
+        else s.setAttribute('hidden', '');
+      });
+    }
+
+    const stop = () => { if (timer) { clearInterval(timer); timer = null; } };
+    const start = () => {
+      if (reduced) return;
+      stop();
+      timer = setInterval(() => show(idx + 1), 4600);
+    };
+
+    tabs.forEach((t) => t.addEventListener('click', () => { show(order.indexOf(t.dataset.screen)); start(); }));
+    device.addEventListener('mouseenter', stop);
+    device.addEventListener('mouseleave', start);
+    device.addEventListener('focusin', stop);
+    device.addEventListener('focusout', start);
+    start();
+  }
+
   /* --------------------------- copy buttons ------------------------ */
   async function copyText(text) {
     try {

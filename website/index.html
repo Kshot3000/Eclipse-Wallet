@@ -67,6 +67,73 @@
         <span class="chip" style="--c:#f7931a">BTC · Bitcoin</span>
         <span class="chip" style="--c:#9fb4d8">☾ Nocturne · private, in the wallet</span>
       </div>
+      <!-- Product showcase: the real popup, four screens -->
+      <div class="device" data-device aria-label="Eclipse wallet preview">
+        <div class="dev-top">
+          <span class="dev-brand"><img src="assets/logo.png" alt="">Eclipse</span>
+          <span class="dev-tabs" role="tablist" aria-label="Wallet screens">
+            <button class="dev-tab on" type="button" data-screen="wallet" role="tab" aria-selected="true">Wallet</button>
+            <button class="dev-tab" type="button" data-screen="send" role="tab" aria-selected="false">Send</button>
+            <button class="dev-tab" type="button" data-screen="nocturne" role="tab" aria-selected="false">Nocturne</button>
+            <button class="dev-tab" type="button" data-screen="dapps" role="tab" aria-selected="false">dApps</button>
+          </span>
+          <span class="dev-status"><span class="dev-dot"></span>Unlocked</span>
+        </div>
+        <div class="dev-screens">
+          <div class="screen on" data-screen="wallet" role="tabpanel">
+            <div class="wm-hero">
+              <div class="wm-label">Portfolio · 3 chains</div>
+              <div class="wm-chips">
+                <span class="wm-chip blue">ADA</span>
+                <span class="wm-chip silver">NIGHT</span>
+                <span class="wm-chip orange">BTC</span>
+              </div>
+              <div class="wm-total"><span>Total value</span><b id="wm-total">…</b></div>
+            </div>
+            <div class="wm-rows">
+              <div class="wm-row"><span class="wd ada"></span>Cardano <b>1,234.56 ADA</b></div>
+              <div class="wm-row"><span class="wd mid"></span>Midnight <b>0.85 NIGHT</b></div>
+              <div class="wm-row"><span class="wd btc"></span>Bitcoin <b>0.04218 BTC</b></div>
+            </div>
+          </div>
+          <div class="screen" data-screen="send" role="tabpanel" hidden>
+            <div class="sc-form">
+              <div class="sf-row"><label>To</label><span class="sf-mono">mn_addr1q…9f3k</span></div>
+              <div class="sf-row"><label>Amount</label><b>0.50 NIGHT</b></div>
+              <div class="sf-row"><label>Fee</label><span>auto · DUST model</span></div>
+              <div class="sf-row"><label>Network</label><span>Midnight · Preprod</span></div>
+              <span class="sf-btn">Confirm &amp; sign</span>
+            </div>
+            <div class="sc-receipt"><span class="ok">✓</span><span>Receipt: <b>signed</b> — BIP340 over canonical CBOR · the node's response is shown honestly</span></div>
+          </div>
+          <div class="screen" data-screen="nocturne" role="tabpanel" hidden>
+            <div class="nc-mailbox"><span class="nc-ic">✉</span><span class="mono">you@nocturne.night</span><span class="nc-sealed">🔒 sealed</span></div>
+            <div class="nc-chat">
+              <div class="nc-head"><b>Nova</b><span class="nc-demo">demo</span><span class="nc-time">2m</span></div>
+              <div class="nc-bub in"><span>sealed · 2 messages</span><em>AES-256-GCM</em></div>
+              <div class="nc-bub out"><span>sealed · 1 message</span><em>AES-256-GCM</em></div>
+            </div>
+            <div class="nc-foot">Key derived from your wallet seed — no server, no plaintext at rest.</div>
+          </div>
+          <div class="screen" data-screen="dapps" role="tabpanel" hidden>
+            <div class="dq-card">
+              <div class="dq-top"><b>dapp.example</b><span class="dq-badge">1 request</span></div>
+              <div class="dq-msg">asks for your <b>Cardano address</b> — approve, reject, or remember this origin.</div>
+              <div class="dq-btns"><span class="ok">Approve</span><span class="no">Reject</span></div>
+            </div>
+            <div class="dq-note">Every request is explicit — badge, desktop notification, your call. Nothing runs silently, ever.</div>
+          </div>
+        </div>
+      </div>
+      <div class="trust-strip" aria-label="Verification and privacy">
+        <span class="trust-chip">Ed25519 · RFC 8032</span>
+        <span class="trust-chip">BIP340 · Schnorr</span>
+        <span class="trust-chip">BIP143 · sighash</span>
+        <span class="trust-chip">RFC 8949 · CBOR</span>
+        <span class="trust-chip">267 automated checks</span>
+        <span class="trust-chip">0 servers</span>
+        <span class="trust-chip">0 trackers</span>
+      </div>
     </section>
 
     <!-- ============================ LIVE STRIP =========================== -->
@@ -84,44 +151,30 @@
       <div class="wrap">
         <div class="sec-head">
           <div class="kicker">Why Eclipse</div>
-          <h2>The wallet that keeps up</h2>
-          <p>Phantom made one-chain wallets feel effortless. Eclipse brings that feel to the Cardano side of the market — with Midnight and Bitcoin in the same icon.</p>
+          <h2>One platform for your three-chain life</h2>
+          <p>Manage, send, sign and message across ADA, NIGHT and BTC — one toolbar icon, one encrypted vault, zero context-switching.</p>
         </div>
-        <div class="why-grid">
-          <div class="wallet-mock" aria-hidden="true">
-            <div class="wm-top">
-              <span class="wm-brand"><img src="assets/logo.png" alt="">Eclipse</span>
-              <span class="wm-status"><span class="wm-dot"></span>Unlocked</span>
-            </div>
-            <div class="wm-hero">
-              <div class="wm-label">Cardano · mainnet</div>
-              <div class="wm-amt">1,234.56<small>ADA</small></div>
-              <div class="wm-chips">
-                <span class="wm-chip blue">ADA</span>
-                <span class="wm-chip silver">NIGHT</span>
-                <span class="wm-chip orange">BTC</span>
-              </div>
-              <div class="wm-total"><span>Portfolio</span><b id="wm-total">…</b></div>
-            </div>
-            <div class="wm-rows">
-              <div class="wm-row"><span class="wd ada"></span>Cardano <b>1,234.56 ADA</b></div>
-              <div class="wm-row"><span class="wd mid"></span>Midnight <b>0.85 NIGHT</b></div>
-              <div class="wm-row"><span class="wd btc"></span>Bitcoin <b>0.04218 BTC</b></div>
-            </div>
-            <div class="wm-nav">
-              <span class="wm-tab on">Wallet</span><span class="wm-tab">dApps</span><span class="wm-tab">Sign</span><span class="wm-tab">Settings</span>
-            </div>
-          </div>
-          <div class="bullets">
-            <div class="bullet"><span class="bk">⚡</span><div><h3>Instant, local-first</h3><p>Everything renders on-device. No spinners waiting on a backend — the only network calls are the chain APIs themselves.</p></div></div>
-            <div class="bullet"><span class="bk">☰</span><div><h3>Three chains, zero context-switching</h3><p>ADA, NIGHT and BTC balances, sends and signatures from one toolbar icon — with per-chain network selection.</p></div></div>
-            <div class="bullet"><span class="bk">🛡️</span><div><h3>Approval-first dApps</h3><p>Every dApp request is explicit. Approve, reject, or remember an origin — nothing runs silently, ever.</p></div></div>
-            <div class="bullet"><span class="bk">🔑</span><div><h3>Self-custody, zero accounts</h3><p>No email, no phone number, no sync. Your seed is encrypted on this device and shown exactly once.</p></div></div>
-            <div class="bullet"><span class="bk">🌙</span><div><h3>Private by default</h3><p>Nocturne keeps your DMs sealed on this device — AES-256-GCM keyed from your wallet seed, with quiet rails for NIGHT, ADA and BTC. No servers.</p></div></div>
-          </div>
+        <div class="feat-grid">
+          <div class="feat"><span class="fk">⚡</span><h3>Instant, local-first</h3><p>Everything renders on-device. No spinners waiting on a backend — the only network calls are the chain APIs themselves.</p></div>
+          <div class="feat"><span class="fk">☰</span><h3>Zero context-switching</h3><p>ADA, NIGHT and BTC balances, sends and signatures from one toolbar icon — with per-chain network selection.</p></div>
+          <div class="feat"><span class="fk">🌙</span><h3>Private by default</h3><p>Nocturne keeps your DMs sealed on this device — AES-256-GCM keyed from your wallet seed, quiet rails for NIGHT, ADA and BTC. No servers.</p></div>
+          <div class="feat"><span class="fk">🛡️</span><h3>Approval-first dApps</h3><p>Every dApp request is explicit. Approve, reject, or remember an origin — nothing runs silently, ever.</p></div>
+          <div class="feat"><span class="fk">🔑</span><h3>Self-custody, zero accounts</h3><p>No email, no phone number, no sync. Your seed is encrypted on this device and shown exactly once.</p></div>
+          <div class="feat"><span class="fk">📡</span><h3>Live, honest data</h3><p>Real prices, real UTXO balances, real chain tips — and receipts that say exactly what a node did, never more.</p></div>
         </div>
       </div>
     </section>
+
+    <!-- ============================= NUMBERS ============================ -->
+    <div class="stats-band" aria-label="Eclipse by the numbers">
+      <div class="stats">
+        <div class="stat"><b>3</b><span>chains, one vault</span></div>
+        <div class="stat"><b>0</b><span>servers, ever</span></div>
+        <div class="stat"><b>0</b><span>trackers or analytics</span></div>
+        <div class="stat"><b>159</b><span>spec-vector checks</span></div>
+        <div class="stat"><b>108</b><span>offline smoke checks</span></div>
+      </div>
+    </div>
 
     <!-- ============================== CHAINS ============================ -->
     <section id="chains" class="reveal">
@@ -238,21 +291,35 @@
           <h2>Your wallet, after dark</h2>
           <p>Nocturne — the Eclipse edition of the creator's Nocturne Messenger — lives inside the wallet as its own tab: sealed on this device, keyed from your seed, honest about every byte it claims.</p>
         </div>
-        <div class="sec-grid">
-          <div class="sec-item">
-            <div class="ico">🌙</div>
-            <h3>Sealed DMs + mailbox</h3>
-            <p>Private chats and a personal mailbox at <span class="mono">you@nocturne.night</span>. Every message is sealed with AES-256-GCM before it touches browser storage — no server, no plaintext at rest.</p>
+        <div class="noct-split">
+          <div class="nc-mock" aria-hidden="true">
+            <div class="nc-mailbox"><span class="nc-ic">✉</span><span class="mono">you@nocturne.night</span><span class="nc-sealed">🔒 sealed</span></div>
+            <div class="nc-chat">
+              <div class="nc-head"><b>Nova</b><span class="nc-demo">demo</span><span class="nc-time">2m</span></div>
+              <div class="nc-bub in"><span>sealed · 2 messages</span><em>AES-256-GCM · on-device</em></div>
+              <div class="nc-bub out"><span>sealed · 1 message</span><em>AES-256-GCM · on-device</em></div>
+              <div class="nc-head" style="margin-top:6px"><b>Riko</b><span class="nc-demo">demo</span><span class="nc-time">1h</span></div>
+              <div class="nc-bub in"><span>quiet rail: 0.25 NIGHT — signed record attached</span><em>bip340 · canonical CBOR</em></div>
+            </div>
+            <div class="nc-rails"><span>🤫 quiet rails</span><span class="nc-chip">NIGHT</span><span class="nc-chip">ADA</span><span class="nc-chip">BTC</span></div>
+            <div class="nc-foot">Key derived from your wallet seed — no server, no plaintext at rest.</div>
           </div>
-          <div class="sec-item">
-            <div class="ico">🗝️</div>
-            <h3>Keyed from your wallet</h3>
-            <p>The sealing key is derived from your wallet seed (<span class="mono">SHA-256(seed || "nocturne/v1")</span>). Same vault, same keys — no second login, nothing to phish, nothing to sync.</p>
-          </div>
-          <div class="sec-item">
-            <div class="ico">🤫</div>
-            <h3>Quiet rails, three chains</h3>
-            <p>ADA and BTC sends settle through the wallet's real signing + broadcast pipelines; NIGHT sends become signed transfer records on Midnight. Demo residents are labelled as demo — the encryption is the real thing.</p>
+          <div class="noct-cards">
+            <div class="sec-item">
+              <div class="ico">🌙</div>
+              <h3>Sealed DMs + mailbox</h3>
+              <p>Private chats and a personal mailbox at <span class="mono">you@nocturne.night</span>. Every message is sealed with AES-256-GCM before it touches browser storage — no server, no plaintext at rest.</p>
+            </div>
+            <div class="sec-item">
+              <div class="ico">🗝️</div>
+              <h3>Keyed from your wallet</h3>
+              <p>The sealing key is derived from your wallet seed (<span class="mono">SHA-256(seed || "nocturne/v1")</span>). Same vault, same keys — no second login, nothing to phish, nothing to sync.</p>
+            </div>
+            <div class="sec-item">
+              <div class="ico">🤫</div>
+              <h3>Quiet rails, three chains</h3>
+              <p>ADA and BTC sends settle through the wallet's real signing + broadcast pipelines; NIGHT sends become signed transfer records on Midnight. Demo residents are labelled as demo — the encryption is the real thing.</p>
+            </div>
           </div>
         </div>
         <div class="note">
@@ -369,6 +436,10 @@
               <li><span class="rm-dot"></span>Multiple accounts</li>
             </ul>
           </div>
+        </div>
+        <div class="rm-cta">
+          <a class="btn" href="#chains">Explore the chains</a>
+          <a class="btn primary" href="docs.html">Read the developer docs →</a>
         </div>
       </div>
     </section>
@@ -514,19 +585,57 @@
         </div>
       </div>
     </section>
+    <!-- ============================ STAY IN THE LOOP ===================== -->
+    <section class="loop reveal">
+      <div class="loop-inner">
+        <div>
+          <h2>Stay in the loop</h2>
+          <p>Eclipse is an open, in-progress wallet — every release ships on GitHub, and milestones are posted as they happen.</p>
+        </div>
+        <div class="loop-btns">
+          <a class="btn primary" href="https://github.com/Kshot3000/eclipse-wallet" target="_blank" rel="noopener">Star on GitHub</a>
+          <a class="btn" href="https://x.com/kshot9000" target="_blank" rel="noopener">𝕏 · @kshot9000</a>
+        </div>
+      </div>
+    </section>
   </main>
 
   <footer>
     <div class="inner">
-      <div class="credit">Eclipse Wallet — built by <a href="https://x.com/kshot9000" target="_blank" rel="noopener">@kshot9000</a> for the Cardano, Midnight &amp; Bitcoin communities.</div>
-      <div class="flinks">
-        <a href="https://github.com/Kshot3000/eclipse-wallet" target="_blank" rel="noopener">GitHub</a>
-        <a href="https://x.com/kshot9000" target="_blank" rel="noopener">X</a>
-        <a href="https://cardano.org" target="_blank" rel="noopener">Cardano</a>
-        <a href="https://midnight.network" target="_blank" rel="noopener">Midnight</a>
-        <a href="https://bitcoin.org" target="_blank" rel="noopener">Bitcoin</a>
+      <div class="f-grid">
+        <div class="f-col f-brand">
+          <div class="f-logo"><img src="assets/logo.png" alt="">Eclipse Wallet</div>
+          <p>All-in-one Cardano · Midnight · Bitcoin wallet for Chrome and Brave. Self-custody, no servers, no trackers.</p>
+          <span class="f-badge">v0.1 · unpacked extension</span>
+        </div>
+        <div class="f-col">
+          <h4>Product</h4>
+          <a href="#why">Why Eclipse</a>
+          <a href="#chains">Chains</a>
+          <a href="#security">Security</a>
+          <a href="#nocturne">Nocturne</a>
+          <a href="#dapps">dApps</a>
+          <a href="#roadmap">Roadmap</a>
+          <a href="#install">Install</a>
+        </div>
+        <div class="f-col">
+          <h4>Developers</h4>
+          <a href="docs.html">Developer docs</a>
+          <a href="https://github.com/Kshot3000/eclipse-wallet" target="_blank" rel="noopener">GitHub ↗</a>
+          <a href="https://github.com/Kshot3000/eclipse-wallet/issues" target="_blank" rel="noopener">Report an issue ↗</a>
+          <a href="https://x.com/kshot9000" target="_blank" rel="noopener">@kshot9000 ↗</a>
+        </div>
+        <div class="f-col">
+          <h4>Chains</h4>
+          <a href="https://cardano.org" target="_blank" rel="noopener">Cardano ↗</a>
+          <a href="https://midnight.network" target="_blank" rel="noopener">Midnight ↗</a>
+          <a href="https://bitcoin.org" target="_blank" rel="noopener">Bitcoin ↗</a>
+        </div>
       </div>
-      <div class="fine">© <span data-year>2026</span> kshot9000 · Eclipse is a self-custody wallet: your keys, your coins, your responsibility. Not financial advice.</div>
+      <div class="f-bottom">
+        <span class="credit">Eclipse Wallet — built by <a href="https://x.com/kshot9000" target="_blank" rel="noopener">@kshot9000</a> for the Cardano, Midnight &amp; Bitcoin communities.</span>
+        <span class="fine">© <span data-year>2026</span> kshot9000 · Eclipse is a self-custody wallet: your keys, your coins, your responsibility. Not financial advice.</span>
+      </div>
     </div>
   </footer>
 
